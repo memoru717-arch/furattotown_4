@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Town Map Editor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Noto+Sans+JP:wght@400;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --bg:#e8f5e9; --panel:#ffffff; --panel-border:#c8e6c9;
+    --accent:#2e7d32; --accent2:#1565c0; --text:#2e3a2e; --text-dim:#6a7b6a;
+    --grid-line:rgba(0,0,0,0.1); --cell-size:48px;
+    --header-bg:#1565c0; --btn-bg:#f1f8e9; --btn-hover:#c8e6c9;
+    --tile-bg:#f9fbe7; --map-bg:#dcedc8; --shadow:0 2px 8px rgba(0,0,0,0.08);
+  }
+  body { font-family:'Noto Sans JP',sans-serif; background:var(--bg); color:var(--text); overflow:hidden; height:100vh; display:flex; flex-direction:column; }
+
+  /* HEADER */
+  .header { background:var(--header-bg); border-bottom:3px solid #0d47a1; padding:8px 16px; display:flex; align-items:center; gap:12px; flex-shrink:0; z-index:100; box-shadow:0 2px 12px rgba(21,101,192,0.2); }
+  .header h1 { font-family:'DotGothic16',cursive; font-size:20px; color:#fff; white-space:nowrap; text-shadow:1px 1px 2px rgba(0,0,0,0.3); }
+  .header-controls { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .btn { font-family:'DotGothic16',cursive; font-size:13px; padding:6px 12px; border:2px solid var(--panel-border); background:var(--btn-bg); color:var(--text); border-radius:6px; cursor:pointer; transition:all 0.15s; white-space:nowrap; box-shadow:var(--shadow); }
+  .btn:hover { border-color:var(--accent); color:var(--accent); background:var(--btn-hover); }
+  .btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .hbtn { background:rgba(255,255,255,0.15); border-color:rgba(255,255,255,0.3); color:#fff; }
+  .hbtn:hover { background:rgba(255,255,255,0.3); border-color:#fff; color:#fff; }
+  .hbtn.active { background:#fff; color:var(--header-bg); border-color:#fff; }
+  .hbtn.accent2 { border-color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.2); }
+  .hbtn.accent2:hover { background:#fff; color:var(--header-bg); }
+  .size-input { width:50px; background:rgba(255,255,255,0.2); border:2px solid rgba(255,255,255,0.3); color:#fff; padding:4px 6px; border-radius:4px; font-family:'DotGothic16',cursive; font-size:13px; text-align:center; }
+  .size-label { font-size:12px; color:rgba(255,255,255,0.8); }
+  .hsep { width:1px; height:20px; background:rgba(255,255,255,0.3); }
+
+  /* LAYER TOGGLE in header */
+  .layer-toggle { display:flex; border-radius:6px; overflow:hidden; border:2px solid rgba(255,255,255,0.3); }
+  .layer-toggle-btn { font-family:'DotGothic16',cursive; font-size:11px; padding:4px 10px; background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); cursor:pointer; border:none; transition:all 0.15s; }
+  .layer-toggle-btn:hover { background:rgba(255,255,255,0.2); color:#fff; }
+  .layer-toggle-btn.active { background:#fff; color:var(--header-bg); font-weight:bold; }
+
+  /* COLOR PICKER */
+  .color-palette-popup { display:none; position:absolute; top:calc(100% + 6px); left:50%; transform:translateX(-50%); background:var(--panel); border:2px solid var(--panel-border); border-radius:8px; padding:10px; box-shadow:0 8px 24px rgba(0,0,0,0.15); z-index:200; min-width:240px; }
+  .color-palette-popup.show { display:block; }
+  .color-palette-grid { display:grid; grid-template-columns:repeat(8,1fr); gap:3px; }
+  .color-swatch { width:26px; height:26px; border-radius:4px; cursor:pointer; border:2px solid transparent; transition:all 0.1s; }
+  .color-swatch:hover { transform:scale(1.15); border-color:var(--accent); }
+  .color-swatch.active { border-color:var(--accent); box-shadow:0 0 0 2px rgba(46,125,50,0.4); }
+  .color-none { background:repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50%/12px 12px; }
+  .color-palette-label { font-family:'DotGothic16',cursive; font-size:10px; color:var(--text-dim); margin-bottom:4px; }
+  .color-custom-row { display:flex; align-items:center; gap:8px; margin-top:8px; padding-top:8px; border-top:1px solid var(--panel-border); }
+  .color-custom-label { font-family:'DotGothic16',cursive; font-size:10px; color:var(--text-dim); white-space:nowrap; }
+  .color-custom-input { width:36px; height:30px; border:2px solid var(--panel-border); border-radius:4px; cursor:pointer; padding:1px; background:none; }
+  .color-custom-input::-webkit-color-swatch-wrapper { padding:0; }
+  .color-custom-input::-webkit-color-swatch { border:none; border-radius:2px; }
+  .color-custom-btn { font-size:11px !important; padding:4px 10px !important; }
+
+  /* MAIN */
+  .main { display:flex; flex:1; overflow:hidden; }
+
+  /* SIDEBAR */
+  .sidebar { width:300px; min-width:300px; background:var(--panel); border-right:2px solid var(--panel-border); display:flex; flex-direction:column; overflow:hidden; flex-shrink:0; box-shadow:2px 0 8px rgba(0,0,0,0.05); }
+  .sidebar-tabs { display:flex; border-bottom:2px solid var(--panel-border); flex-shrink:0; background:linear-gradient(135deg,#e8f5e9,#f1f8e9); }
+  .sidebar-tab { flex:1; padding:10px 8px; font-family:'DotGothic16',cursive; font-size:12px; text-align:center; cursor:pointer; border:none; background:transparent; color:var(--text-dim); transition:all 0.15s; border-bottom:3px solid transparent; }
+  .sidebar-tab:hover { color:var(--accent); background:rgba(46,125,50,0.05); }
+  .sidebar-tab.active { color:var(--accent); border-bottom-color:var(--accent); background:var(--panel); font-weight:bold; }
+  .sidebar-tab .tab-icon { display:block; font-size:18px; margin-bottom:2px; }
+  .tab-content { display:none; flex:1; flex-direction:column; overflow:hidden; }
+  .tab-content.active { display:flex; }
+
+  /* Palette */
+  .palette-header { padding:10px 12px; border-bottom:1px solid var(--panel-border); display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+  .palette-actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .palette-actions .btn { font-size:11px; padding:4px 8px; }
+  .category-tabs { display:flex; gap:4px; flex-wrap:wrap; padding:6px 12px; border-bottom:1px solid var(--panel-border); flex-shrink:0; }
+  .cat-tab { font-family:'DotGothic16',cursive; font-size:11px; padding:3px 8px; border-radius:4px; cursor:pointer; background:transparent; color:var(--text-dim); border:1px solid transparent; transition:all 0.15s; }
+  .cat-tab:hover { color:var(--text); }
+  .cat-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .tile-grid { flex:1; overflow-y:auto; padding:8px; display:grid; grid-template-columns:repeat(4, 62px); gap:6px; align-content:start; justify-content:center; }
+  .tile-grid::-webkit-scrollbar { width:6px; }
+  .tile-grid::-webkit-scrollbar-thumb { background:var(--panel-border); border-radius:3px; }
+  .tile-item { width:62px; height:62px; border:2px solid var(--panel-border); border-radius:6px; cursor:pointer; overflow:hidden; position:relative; transition:all 0.15s; background:var(--tile-bg); flex-shrink:0; }
+  .tile-item:hover { border-color:var(--accent); transform:scale(1.05); box-shadow:0 2px 8px rgba(46,125,50,0.2); }
+  .tile-item.selected { border-color:var(--accent); box-shadow:0 0 8px var(--accent); }
+  .tile-item[draggable="true"] { cursor:grab; }
+  .tile-item[draggable="true"]:active { cursor:grabbing; }
+  .tile-item.dragging { opacity:0.2; }
+  .tile-item.drop-before { transform:translateX(12px); transition:transform 0.15s ease; }
+  .tile-item.drop-after { transform:translateX(-12px); transition:transform 0.15s ease; }
+  .tile-item img { width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
+  .tile-item .tile-name { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.65); font-size:9px; padding:1px 3px; text-align:center; color:#fff; font-family:'DotGothic16',cursive; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* Folder groups */
+  .folder-group { grid-column:1/-1; margin-top:4px; }
+  .folder-header { display:flex; align-items:center; gap:6px; padding:5px 8px; background:var(--panel-border); border-radius:5px; cursor:pointer; font-family:'DotGothic16',cursive; font-size:11px; color:var(--text); transition:background 0.15s; user-select:none; }
+  .folder-header:hover { background:#b9d9b9; }
+  .folder-arrow { font-size:10px; transition:transform 0.2s; }
+  .folder-arrow.closed { transform:rotate(-90deg); }
+  .folder-count { font-size:10px; color:var(--text-dim); margin-left:auto; }
+  .folder-check { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:4px; border:2px solid var(--panel-border); background:#fff; font-size:11px; color:#fff; cursor:pointer; flex-shrink:0; transition:all 0.15s; }
+  .folder-check:hover { border-color:var(--accent); }
+  .folder-check.checked { background:#e53935; border-color:#e53935; }
+  .folder-check.partial { background:#ff8a65; border-color:#ff8a65; }
+  .folder-tiles { display:grid; grid-template-columns:repeat(4, 62px); gap:6px; justify-content:center; padding:6px 0; }
+  .folder-tiles.hidden { display:none; }
+
+  /* Multi-select */
+  .multi-select-bar { display:flex; align-items:center; gap:6px; padding:6px 12px; background:#fff3e0; border-bottom:1px solid #ffe0b2; flex-wrap:wrap; }
+  .multi-select-bar .btn { font-size:10px; padding:3px 7px; }
+  .btn-danger { border-color:#e53935!important; color:#e53935!important; }
+  .btn-danger:hover { background:#e53935!important; color:#fff!important; }
+  .tile-item.multi-selected { border-color:#e53935; box-shadow:0 0 0 2px rgba(229,57,53,0.3); }
+  .tile-item .check-overlay { position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; border:2px solid var(--panel-border); background:rgba(255,255,255,0.9); display:none; align-items:center; justify-content:center; font-size:12px; z-index:2; }
+  .tile-item.show-check .check-overlay { display:flex; }
+  .tile-item.multi-selected .check-overlay { background:#e53935; border-color:#e53935; color:#fff; }
+  .move-panel { background:#e3f2fd; border-bottom:2px solid #90caf9; padding:8px 12px; flex-shrink:0; }
+  .new-folder-panel { background:#e3f2fd; border-bottom:2px solid #90caf9; padding:8px 12px; flex-shrink:0; }
+  .move-panel-label { font-family:'DotGothic16',cursive; font-size:11px; color:var(--accent2); }
+  .move-panel-buttons { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .move-cat-btn { font-family:'DotGothic16',cursive; font-size:12px; padding:6px 14px; border:2px solid #90caf9; background:#fff; color:var(--accent2); border-radius:6px; cursor:pointer; transition:all 0.15s; }
+  .move-cat-btn:hover { background:var(--accent2); border-color:var(--accent2); color:#fff; }
+
+  /* Info tab */
+  .info-tab-content { padding:12px; overflow-y:auto; flex:1; }
+  .info-section { margin-bottom:16px; }
+  .info-section h3 { font-family:'DotGothic16',cursive; font-size:13px; color:var(--accent); margin-bottom:8px; padding-bottom:6px; border-bottom:2px solid var(--panel-border); }
+  .info-text { font-size:12px; color:var(--text-dim); line-height:1.6; }
+  .cell-info-display { background:var(--tile-bg); border:1px solid var(--panel-border); border-radius:8px; padding:10px 12px; font-size:12px; color:var(--text-dim); line-height:1.8; }
+  .cell-info-display .coord { font-family:'DotGothic16',cursive; font-size:16px; color:var(--accent); font-weight:bold; }
+  .layer-list { display:flex; flex-direction:column; gap:4px; }
+  .layer-entry { display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:6px; background:var(--tile-bg); border:1px solid var(--panel-border); font-size:11px; }
+  .layer-entry img { width:32px; height:32px; image-rendering:pixelated; border-radius:3px; }
+  .layer-entry .layer-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .layer-entry .layer-del { cursor:pointer; color:#e53935; font-size:14px; padding:2px 6px; border-radius:3px; }
+  .layer-entry .layer-del:hover { color:#c62828; background:rgba(229,57,53,0.1); }
+  .layer-label { font-family:'DotGothic16',cursive; font-size:11px; color:var(--accent2); margin-bottom:4px; padding:3px 8px; background:#e3f2fd; border-radius:4px; display:inline-block; }
+  .layer-color-box { width:32px; height:32px; border-radius:3px; border:1px solid rgba(0,0,0,0.15); flex-shrink:0; }
+
+  /* Help tab */
+  .help-content { padding:14px; overflow-y:auto; flex:1; }
+  .help-section { margin-bottom:16px; }
+  .help-section h3 { font-family:'DotGothic16',cursive; font-size:13px; color:var(--accent); margin-bottom:8px; }
+  .help-item { display:flex; align-items:flex-start; gap:8px; padding:6px 0; font-size:12px; color:var(--text-dim); line-height:1.5; border-bottom:1px solid rgba(0,0,0,0.04); }
+  .help-item:last-child { border-bottom:none; }
+  .help-key { font-family:'DotGothic16',cursive; background:var(--tile-bg); border:1px solid var(--panel-border); border-radius:4px; padding:2px 6px; font-size:11px; white-space:nowrap; color:var(--text); flex-shrink:0; }
+
+  /* MAP */
+  .map-area { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .map-container { flex:1; overflow:auto; position:relative; background:var(--map-bg); background-image:radial-gradient(circle at 20% 50%,rgba(129,199,132,0.3) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(165,214,167,0.3) 0%,transparent 50%); display:flex; align-items:center; justify-content:center; }
+  .map-wrapper { display:inline-block; position:relative; padding-left:30px; padding-top:24px; }
+  .map-grid { display:grid; gap:0; position:relative; border:3px solid #a5d6a7; border-radius:4px; box-shadow:0 4px 16px rgba(0,0,0,0.08); background:#f1f8e9; }
+  .map-cell { width:var(--cell-size); height:var(--cell-size); border:none; position:relative; cursor:crosshair; overflow:hidden; }
+  .map-grid.show-grid .map-cell::after { content:''; position:absolute; top:0; left:0; right:0; bottom:0; border:0.5px solid rgba(0,0,0,0.12); pointer-events:none; z-index:10; }
+  .map-cell:hover::before { content:''; position:absolute; top:0; left:0; right:0; bottom:0; border:2px solid var(--accent); pointer-events:none; z-index:20; }
+  .map-cell.drag-over { outline:2px dashed var(--accent2); outline-offset:-2px; }
+  .cell-bg { position:absolute; top:0; left:0; width:100%; height:100%; z-index:0; }
+  .cell-icon { position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; image-rendering:pixelated; }
+  .cell-icon img { width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
+  .row-labels { position:absolute; left:-28px; top:0; display:flex; flex-direction:column; }
+  .row-label,.col-label { font-family:'DotGothic16',cursive; font-size:12px; color:#558b2f; font-weight:bold; display:flex; align-items:center; justify-content:center; }
+  .row-label { width:24px; height:var(--cell-size); }
+  .col-labels { position:absolute; top:-22px; left:0; display:flex; }
+  .col-label { width:var(--cell-size); height:20px; }
+
+  /* MAP TABS */
+  .map-tabs-bar { display:flex; align-items:center; background:var(--panel); border-top:2px solid var(--panel-border); flex-shrink:0; padding:0 8px; gap:4px; height:36px; overflow-x:auto; }
+  .map-tab { font-family:'DotGothic16',cursive; font-size:12px; padding:6px 16px; border:1px solid var(--panel-border); border-bottom:none; border-radius:6px 6px 0 0; cursor:pointer; background:var(--btn-bg); color:var(--text-dim); white-space:nowrap; transition:all 0.15s; }
+  .map-tab:hover { color:var(--accent); background:var(--btn-hover); }
+  .map-tab.active { background:var(--map-bg); color:var(--accent); font-weight:bold; border-color:var(--accent); }
+  .map-tab .tab-close, .map-tab .tab-copy { display:none; margin-left:4px; font-size:10px; cursor:pointer; }
+  .map-tab .tab-close { color:#e53935; }
+  .map-tab .tab-copy { color:var(--accent2); }
+  .map-tab:hover .tab-close, .map-tab:hover .tab-copy { display:inline; }
+  .map-tab-add { font-family:'DotGothic16',cursive; font-size:16px; width:28px; height:28px; border:2px dashed var(--panel-border); border-radius:6px; background:transparent; color:var(--accent); cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .map-tab-add:hover { background:var(--btn-hover); border-color:var(--accent); }
+
+  .save-indicator { font-family:'DotGothic16',cursive; font-size:11px; color:rgba(255,255,255,0.6); margin-left:auto; white-space:nowrap; }
+  .save-indicator.saving { color:#81c784; }
+
+  .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+  .modal-overlay.show { display:flex; }
+  .modal { background:var(--panel); border:2px solid var(--panel-border); border-radius:12px; padding:24px; max-width:500px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.15); }
+  .modal h2 { font-family:'DotGothic16',cursive; color:var(--accent); margin-bottom:16px; }
+  .modal input[type="text"] { width:100%; padding:8px; background:var(--bg); border:2px solid var(--panel-border); color:var(--text); border-radius:6px; font-size:14px; font-family:'DotGothic16',cursive; }
+  .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+
+  #exportCanvas { display:none; }
+
+  /* TILE LIST MODAL */
+  .tile-list-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; align-items:center; justify-content:center; }
+  .tile-list-overlay.show { display:flex; }
+  .tile-list-modal { background:var(--panel); border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,0.25); width:680px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; }
+  .tile-list-header { background:var(--header-bg); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+  .tile-list-header h2 { font-family:'DotGothic16',cursive; font-size:16px; margin:0; }
+  .tile-list-count { font-family:'DotGothic16',cursive; font-size:12px; opacity:0.8; }
+  .tile-list-body { overflow-y:auto; padding:16px; flex:1; }
+  .tile-list-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:12px; }
+  .tile-list-item { background:var(--tile-bg); border:2px solid var(--panel-border); border-radius:8px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .tile-list-img { width:64px; height:64px; object-fit:contain; image-rendering:pixelated; border-radius:4px; background:#f0f0f0; }
+  .tile-list-name-input { width:100%; font-family:'DotGothic16',cursive; font-size:11px; padding:4px 6px; border:2px solid var(--panel-border); border-radius:4px; text-align:center; background:#fff; color:var(--text); }
+  .tile-list-name-input:focus { outline:none; border-color:var(--accent); }
+  .tile-list-badge { font-family:'DotGothic16',cursive; font-size:9px; padding:2px 6px; border-radius:10px; color:#fff; }
+  .badge-bg { background:#1565c0; }
+  .badge-icon { background:#2e7d32; }
+  .badge-both { background:#7b1fa2; }
+  .tile-list-footer { padding:12px 20px; border-top:2px solid var(--panel-border); display:flex; justify-content:flex-end; gap:8px; flex-shrink:0; background:var(--panel); }
+  .tile-list-empty { font-family:'DotGothic16',cursive; font-size:13px; color:var(--text-dim); text-align:center; padding:40px; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(100px); background:var(--accent); color:#fff; padding:10px 20px; border-radius:8px; font-family:'DotGothic16',cursive; font-size:14px; z-index:2000; transition:transform 0.3s; pointer-events:none; box-shadow:0 4px 12px rgba(46,125,50,0.3); }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+  .cursor-preview { position:fixed; pointer-events:none; z-index:999; opacity:0.6; image-rendering:pixelated; display:none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏘️ Town Map Editor</h1>
+  <div class="header-controls">
+    <span class="size-label">W:</span>
+    <input type="number" id="gridW" class="size-input" value="16" min="1" max="50">
+    <span class="size-label">H:</span>
+    <input type="number" id="gridH" class="size-input" value="12" min="1" max="50">
+    <button class="btn hbtn" onclick="resizeGrid()">リサイズ</button>
+    <div class="hsep"></div>
+    <div class="layer-toggle">
+      <button class="layer-toggle-btn active" id="btnLayerBg" onclick="setActiveLayer('bg')">🖼 背景</button>
+      <button class="layer-toggle-btn" id="btnLayerIcon" onclick="setActiveLayer('icon')">📌 アイコン</button>
+    </div>
+    <div class="hsep"></div>
+    <button class="btn hbtn" id="btnPen" onclick="setTool('pen')">🖊 ペン</button>
+    <button class="btn hbtn" id="btnSpoit" onclick="setTool('spoit')">💧 スポイト</button>
+    <button class="btn hbtn" id="btnEraser" onclick="setTool('eraser')">🧹 消しゴム</button>
+    <button class="btn hbtn" id="btnGrid" onclick="toggleGrid()">🔲 グリッド</button>
+    <div style="position:relative;">
+      <button class="btn hbtn" id="btnFill" onclick="onFillClick()">🪣 塗りつぶし <span id="fillColorDot" style="display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,0.5);vertical-align:middle;margin-left:2px;"></span></button>
+      <div class="color-palette-popup" id="colorPalettePopup"></div>
+    </div>
+    <div class="hsep" style="margin-left:20px;"></div>
+    <button class="btn hbtn" onclick="showTileList()">🗂 タイル一覧</button>
+    <div class="hsep"></div>
+    <button class="btn hbtn accent2" onclick="exportMapJs()">📤 map出力</button>
+    <button class="btn hbtn accent2" onclick="exportUsedImages()">🖼 画像出力</button>
+    <button class="btn hbtn" onclick="clearMap()">🗑 全消去</button>
+  </div>
+  <div class="save-indicator" id="saveIndicator">自動保存 ✓</div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab active" onclick="switchSideTab('palette',this)"><span class="tab-icon">🎨</span>パレット</button>
+      <button class="sidebar-tab" onclick="switchSideTab('info',this)"><span class="tab-icon">📍</span>セル情報</button>
+      <button class="sidebar-tab" onclick="switchSideTab('help',this)"><span class="tab-icon">💡</span>使い方</button>
+    </div>
+    <div class="tab-content active" id="tab-palette">
+      <div class="palette-header">
+        <div class="palette-actions">
+          <button class="btn" onclick="document.getElementById('tileFileInput').value=''; document.getElementById('tileFileInput').click()">📁 画像追加</button>
+          <button class="btn" onclick="document.getElementById('tileFolderInput').value=''; document.getElementById('tileFolderInput').click()">📂 フォルダ一括</button>
+          <button class="btn" id="btnMultiSelect" onclick="toggleMultiSelect()">☑️ 選択</button>
+        </div>
+        <div class="multi-select-bar" id="multiSelectBar" style="display:none;">
+          <span id="multiSelectCount" style="font-family:'DotGothic16',cursive;font-size:11px;color:var(--accent);">0個選択中</span>
+          <button class="btn" onclick="selectAllVisible()">全選択</button>
+          <button class="btn" onclick="clearMultiSelect()">選択解除</button>
+          <button class="btn" onclick="toggleMovePanel()">📦 移動</button>
+          <button class="btn" onclick="showNewFolderPrompt()">📁 フォルダにまとめる</button>
+          <button class="btn btn-danger" onclick="deleteMultiSelected()">🗑 削除</button>
+        </div>
+        <div class="move-panel" id="movePanel" style="display:none;">
+          <div><span class="move-panel-label" id="movePanelLabel"></span></div>
+          <div class="move-panel-buttons" id="movePanelButtons"></div>
+        </div>
+        <div class="new-folder-panel" id="newFolderPanel" style="display:none;">
+          <div class="move-panel-label" id="newFolderLabel"></div>
+          <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+            <input type="text" id="newFolderNameInput" placeholder="フォルダ名を入力..." style="flex:1;padding:5px 8px;border:2px solid #90caf9;border-radius:5px;font-family:'DotGothic16',cursive;font-size:12px;background:#fff;color:var(--text);">
+            <button class="btn" onclick="doCreateFolder()" style="font-size:11px;padding:5px 10px;">作成</button>
+            <button class="btn" onclick="document.getElementById('newFolderPanel').style.display='none'" style="font-size:11px;padding:5px 8px;">✕</button>
+          </div>
+        </div>
+        <input type="file" id="tileFileInput" multiple accept="image/*" style="display:none" onchange="handleFileUpload(this.files); this.value='';">
+        <input type="file" id="tileFolderInput" webkitdirectory multiple accept="image/*" style="display:none" onchange="handleFileUpload(this.files); this.value='';">
+      </div>
+      <div class="category-tabs" id="categoryTabs"></div>
+      <div class="tile-grid" id="tileGrid"></div>
+    </div>
+    <div class="tab-content" id="tab-info">
+      <div class="info-tab-content">
+        <div class="info-section"><h3>📍 セル情報</h3><div class="cell-info-display" id="cellInfo">マップ上のセルをホバーすると<br>ここに情報が表示されます</div></div>
+        <div class="info-section"><h3>📚 レイヤー詳細</h3><div id="layerDetail"><div class="info-text">セルをホバーすると表示されます</div></div></div>
+      </div>
+    </div>
+    <div class="tab-content" id="tab-help">
+      <div class="help-content">
+        <div class="help-section"><h3>🖱 マウス操作</h3>
+          <div class="help-item"><span class="help-key">左クリック</span><span>ペン：タイル配置 / 塗りつぶし：色塗り</span></div>
+          <div class="help-item"><span class="help-key">ドラッグ</span><span>連続配置・連続塗り</span></div>
+          <div class="help-item"><span class="help-key">右クリック</span><span>選択レイヤーの内容を削除</span></div>
+        </div>
+        <div class="help-section"><h3>🛠 ツール</h3>
+          <div class="help-item"><span class="help-key">🖊 ペン</span><span>選択タイルを配置</span></div>
+          <div class="help-item"><span class="help-key">🧹 消しゴム</span><span>選択レイヤーの内容を消去</span></div>
+          <div class="help-item"><span class="help-key">🪣 塗りつぶし</span><span>選んだ色でセル背景を塗る</span></div>
+        </div>
+        <div class="help-section"><h3>📐 レイヤー</h3>
+          <div class="help-item"><span class="help-key">🖼 背景</span><span>セルの背景色・背景画像</span></div>
+          <div class="help-item"><span class="help-key">📌 アイコン</span><span>背景の上に置くアイコン画像</span></div>
+        </div>
+        <div class="help-section"><h3>⌨️ キーボード</h3>
+          <div class="help-item"><span class="help-key">⌘Z</span><span>元に戻す</span></div>
+          <div class="help-item"><span class="help-key">⌘⇧Z</span><span>やり直し</span></div>
+        </div>
+        <div class="help-section"><h3>📑 マップタブ</h3>
+          <div class="help-item"><span class="help-key">＋</span><span>新しいマップを追加</span></div>
+          <div class="help-item"><span class="help-key">ダブルクリック</span><span>マップ名を変更</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="map-area">
+    <div class="map-container" id="mapContainer">
+      <div class="map-wrapper">
+        <div class="col-labels" id="colLabels"></div>
+        <div class="row-labels" id="rowLabels"></div>
+        <div class="map-grid" id="mapGrid"></div>
+      </div>
+    </div>
+    <div class="map-tabs-bar" id="mapTabsBar">
+      <button class="map-tab-add" onclick="addMapTab()" title="新しいマップを追加">＋</button>
+    </div>
+  </div>
+</div>
+
+<img class="cursor-preview" id="cursorPreview">
+<canvas id="exportCanvas"></canvas>
+<div class="modal-overlay" id="renameModal">
+  <div class="modal"><h2>📝 マップ名を変更</h2><input type="text" id="renameInput" placeholder="新しいマップ名">
+  <div class="modal-actions"><button class="btn" onclick="closeRenameModal()">キャンセル</button><button class="btn active" onclick="doRename()">変更</button></div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="tile-list-overlay" id="tileListModal">
+  <div class="tile-list-modal">
+    <div class="tile-list-header">
+      <h2>🗂 使用タイル一覧</h2>
+      <span class="tile-list-count" id="tileListCount"></span>
+    </div>
+    <div class="tile-list-body">
+      <div class="tile-list-grid" id="tileListGrid"></div>
+    </div>
+    <div class="tile-list-footer">
+      <button class="btn" onclick="closeTileList()">キャンセル</button>
+      <button class="btn" onclick="reimportFromMapimg()" style="border-color:#1565c0;color:#1565c0;" title="mapimgフォルダを選択すると、同名のファイルで画像を一括更新します">🔄 mapimgから画像を更新</button>
+      <button class="btn active" onclick="saveTileNames()">✅ 名前を保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== COLORS =====
+const FILL_COLORS = [
+  null,
+  '#ffffff','#f5f5f5','#e0e0e0','#9e9e9e','#616161','#212121','#000000',
+  '#ffcdd2','#ef9a9a','#ef5350','#c62828','#f48fb1','#ec407a','#ad1457',
+  '#ce93d8','#ab47bc','#6a1b9a','#b39ddb','#7e57c2','#4527a0',
+  '#90caf9','#42a5f5','#1565c0','#80deea','#26c6da','#00838f',
+  '#a5d6a7','#66bb6a','#2e7d32','#c5e1a5','#9ccc65','#558b2f',
+  '#fff59d','#ffee58','#f9a825','#ffcc80','#ffa726','#e65100',
+  '#bcaaa4','#8d6e63','#4e342e','#b0bec5','#78909c','#37474f',
+];
+
+// ===== STATE =====
+const STORAGE_KEY = 'townMapEditor_v3';
+let project = {
+  maps: [], activeMapId: null,
+  bgTiles: [],   // background palette tiles
+  iconTiles: [], // icon palette tiles
+  bgCategories: [],
+  iconCategories: ['すべて','道','自然','公共施設','家','標識'],
+  tileIdCounter: 0, mapIdCounter: 0
+};
+let currentTool = 'pen';
+let activeLayer = 'bg';
+let selectedTile = null;
+let fillColor = '#a5d6a7';
+let isMouseDown = false;
+let activeBgCategory = 'すべて';
+let activeIconCategory = 'すべて';
+let undoStack = [], redoStack = [];
+let selectedCell = null;
+let multiSelectMode = false, multiSelected = new Set();
+let collapsedFolders = new Set();
+let renamingMapId = null, saveTimeout = null;
+
+// ===== INIT =====
+let showGrid = true;
+async function init() {
+  await loadFromStorage();
+  if (project.maps.length === 0) addMapTab();
+  renderMapTabs();
+  switchToMap(project.activeMapId || project.maps[0].id);
+  setTool('pen');
+  renderCategories(); renderPalette();
+  buildColorPalette();
+  updateFillDot();
+  updateGridToggle();
+}
+function toggleGrid() {
+  showGrid = !showGrid;
+  updateGridToggle();
+}
+function updateGridToggle() {
+  const grid = document.getElementById('mapGrid');
+  grid.classList.toggle('show-grid', showGrid);
+  document.getElementById('btnGrid').classList.toggle('active', showGrid);
+}
+
+// ===== STORAGE (IndexedDB) =====
+const DB_NAME = 'TownMapEditorDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'project';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => { e.target.result.createObjectStore(STORE_NAME); };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function saveToStorage() {
+  const ind = document.getElementById('saveIndicator');
+  ind.textContent = '保存中...'; ind.classList.add('saving');
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      syncCurrentMapToProject();
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(JSON.parse(JSON.stringify(project)), 'data');
+      await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+      ind.textContent = '自動保存 ✓';
+    } catch(e) {
+      console.error('Save error:', e);
+      ind.textContent = '保存エラー';
+    }
+    setTimeout(() => ind.classList.remove('saving'), 500);
+  }, 300);
+}
+
+async function loadFromStorage() {
+  try {
+    // Try IndexedDB first
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).get('data');
+    const p = await new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = rej; });
+    if (p) {
+      project = { ...project, ...p };
+      if (!project.bgTiles) project.bgTiles = [];
+      if (!project.iconTiles) project.iconTiles = [];
+      // Ensure preset categories always exist
+      ensurePresetCategories();
+      return;
+    }
+    // Fallback: migrate from old localStorage
+    let d = localStorage.getItem('townMapEditor_v3');
+    if (!d) d = localStorage.getItem('townMapEditor_v2');
+    if (!d) d = localStorage.getItem('townMapEditor');
+    if (d) {
+      const old = JSON.parse(d);
+      if (old.tiles && !old.iconTiles) {
+        old.bgTiles = [];
+        old.iconTiles = old.tiles;
+        delete old.tiles;
+      }
+      if (old.categories && !old.bgCategories) {
+        old.bgCategories = ['すべて','道','自然'];
+        old.iconCategories = ['すべて','公共施設','家','標識'];
+        delete old.categories;
+      }
+      project = { ...project, ...old };
+      if (!project.bgTiles) project.bgTiles = [];
+      if (!project.iconTiles) project.iconTiles = [];
+      ensurePresetCategories();
+      // Migrate to IndexedDB and clean up localStorage
+      saveToStorage();
+      localStorage.removeItem('townMapEditor_v3');
+      localStorage.removeItem('townMapEditor_v2');
+      localStorage.removeItem('townMapEditor');
+    }
+  } catch(e) { console.error('Load error:', e); }
+}
+function syncCurrentMapToProject() {
+  const map = getActiveMap(); if (!map) return;
+  map.cols = parseInt(document.getElementById('gridW').value) || 16;
+  map.rows = parseInt(document.getElementById('gridH').value) || 12;
+}
+function ensurePresetCategories() {
+  const ICON_PRESETS = ['すべて','道','自然','公共施設','家','標識'];
+  if (!project.iconCategories) project.iconCategories = [];
+  ICON_PRESETS.forEach(c => { if (!project.iconCategories.includes(c)) project.iconCategories.push(c); });
+  project.bgCategories = [];
+}
+function getActiveMap() { return project.maps.find(m => m.id === project.activeMapId); }
+
+// ===== MAP TABS =====
+function addMapTab() {
+  const id = project.mapIdCounter++;
+  const name = 'マップ' + (project.maps.length + 1);
+  const cols = 16, rows = 12, mapData = [];
+  for (let r = 0; r < rows; r++) { mapData[r] = []; for (let c = 0; c < cols; c++) mapData[r][c] = { bg: { color: null, tile: null }, icon: { tile: null } }; }
+  project.maps.push({ id, name, cols, rows, mapData });
+  project.activeMapId = id;
+  renderMapTabs(); switchToMap(id); saveToStorage();
+}
+function switchToMap(mapId) {
+  const prev = getActiveMap(); if (prev) syncCurrentMapToProject();
+  project.activeMapId = mapId;
+  const map = getActiveMap(); if (!map) return;
+  document.getElementById('gridW').value = map.cols;
+  document.getElementById('gridH').value = map.rows;
+  undoStack = []; redoStack = [];
+  buildGrid(map); renderMapTabs(); saveToStorage();
+}
+function deleteMapTab(mapId) {
+  if (project.maps.length <= 1) { toast('最後のマップは削除できません'); return; }
+  if (!confirm('このマップを削除しますか？')) return;
+  project.maps = project.maps.filter(m => m.id !== mapId);
+  if (project.activeMapId === mapId) { project.activeMapId = project.maps[0].id; switchToMap(project.activeMapId); }
+  renderMapTabs(); saveToStorage();
+}
+function renameMapTab(mapId) { renamingMapId = mapId; const m = project.maps.find(m => m.id === mapId); document.getElementById('renameInput').value = m.name; document.getElementById('renameModal').classList.add('show'); setTimeout(() => document.getElementById('renameInput').focus(), 100); }
+function closeRenameModal() { document.getElementById('renameModal').classList.remove('show'); }
+function doRename() { const n = document.getElementById('renameInput').value.trim(); if (!n) return; const m = project.maps.find(m => m.id === renamingMapId); if (m) m.name = n; closeRenameModal(); renderMapTabs(); saveToStorage(); }
+function duplicateMapTab(mapId) {
+  syncCurrentMapToProject();
+  const src = project.maps.find(m => m.id === mapId);
+  if (!src) return;
+  const id = project.mapIdCounter++;
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.id = id;
+  copy.name = src.name + ' (コピー)';
+  // Insert right after the source
+  const idx = project.maps.findIndex(m => m.id === mapId);
+  project.maps.splice(idx + 1, 0, copy);
+  project.activeMapId = id;
+  renderMapTabs(); switchToMap(id); saveToStorage();
+  toast('「' + src.name + '」を複製しました！');
+}
+function renderMapTabs() {
+  const bar = document.getElementById('mapTabsBar');
+  bar.querySelectorAll('.map-tab').forEach(t => t.remove());
+  const addBtn = bar.querySelector('.map-tab-add');
+  project.maps.forEach(map => {
+    const tab = document.createElement('div');
+    tab.className = 'map-tab' + (map.id === project.activeMapId ? ' active' : '');
+    tab.innerHTML = `<span>${map.name}</span><span class="tab-copy" onclick="event.stopPropagation();duplicateMapTab(${map.id})" title="複製">📋</span><span class="tab-close" onclick="event.stopPropagation();deleteMapTab(${map.id})" title="削除">✕</span>`;
+    tab.onclick = () => switchToMap(map.id);
+    tab.ondblclick = e => { e.stopPropagation(); renameMapTab(map.id); };
+    bar.insertBefore(tab, addBtn);
+  });
+}
+
+// ===== GRID =====
+function ensureCellData(map, r, c) {
+  if (!map.mapData[r]) map.mapData[r] = [];
+  if (!map.mapData[r][c] || typeof map.mapData[r][c] !== 'object' || Array.isArray(map.mapData[r][c])) {
+    map.mapData[r][c] = { bg: { color: null, tile: null }, icon: { tile: null } };
+  }
+  if (!map.mapData[r][c].bg) map.mapData[r][c].bg = { color: null, tile: null };
+  if (!map.mapData[r][c].icon) map.mapData[r][c].icon = { tile: null };
+  return map.mapData[r][c];
+}
+
+function buildGrid(map) {
+  if (!map) map = getActiveMap(); if (!map) return;
+  const grid = document.getElementById('mapGrid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${map.cols}, var(--cell-size))`;
+  grid.style.gridTemplateRows = `repeat(${map.rows}, var(--cell-size))`;
+  while (map.mapData.length < map.rows) map.mapData.push([]);
+  for (let r = 0; r < map.rows; r++) { while (map.mapData[r].length < map.cols) map.mapData[r].push(null); }
+  for (let r = 0; r < map.rows; r++) {
+    for (let c = 0; c < map.cols; c++) {
+      ensureCellData(map, r, c);
+      const cell = document.createElement('div');
+      cell.className = 'map-cell'; cell.dataset.row = r; cell.dataset.col = c;
+      cell.addEventListener('mousedown', onCellMouseDown);
+      cell.addEventListener('mouseenter', onCellMouseEnter);
+      cell.addEventListener('mouseover', onCellHover);
+      cell.addEventListener('contextmenu', onCellRightClick);
+      cell.addEventListener('dragover', e => { e.preventDefault(); cell.classList.add('drag-over'); });
+      cell.addEventListener('dragleave', () => cell.classList.remove('drag-over'));
+      cell.addEventListener('drop', onCellDrop);
+      grid.appendChild(cell);
+      renderCell(r, c, cell, map);
+    }
+  }
+  const cl = document.getElementById('colLabels'); cl.innerHTML = '';
+  for (let c = 0; c < map.cols; c++) { const l = document.createElement('div'); l.className = 'col-label'; l.textContent = c + 1; cl.appendChild(l); }
+  const rl = document.getElementById('rowLabels'); rl.innerHTML = '';
+  for (let r = 0; r < map.rows; r++) { const l = document.createElement('div'); l.className = 'row-label'; l.textContent = String.fromCharCode(65 + r); rl.appendChild(l); }
+  if (typeof updateGridToggle === 'function') updateGridToggle();
+}
+
+function renderCell(r, c, cellEl, map) {
+  if (!map) map = getActiveMap();
+  if (!cellEl) cellEl = document.querySelector(`.map-cell[data-row="${r}"][data-col="${c}"]`);
+  if (!cellEl || !map) return;
+  cellEl.querySelectorAll('.cell-bg,.cell-icon').forEach(l => l.remove());
+  const d = ensureCellData(map, r, c);
+  // BG layer
+  const bgDiv = document.createElement('div'); bgDiv.className = 'cell-bg';
+  if (d.bg.color) bgDiv.style.background = d.bg.color;
+  else bgDiv.style.background = 'rgba(255,255,255,0.3)';
+  if (d.bg.tile) { const img = document.createElement('img'); img.src = d.bg.tile.src; img.draggable = false; img.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated;'; bgDiv.appendChild(img); }
+  cellEl.appendChild(bgDiv);
+  // Icon layer
+  if (d.icon.tile) {
+    const iconDiv = document.createElement('div'); iconDiv.className = 'cell-icon';
+    const img = document.createElement('img'); img.src = d.icon.tile.src; img.draggable = false;
+    iconDiv.appendChild(img); cellEl.appendChild(iconDiv);
+  }
+}
+
+function resizeGrid() {
+  const map = getActiveMap(); if (!map) return;
+  map.cols = Math.max(1, Math.min(50, parseInt(document.getElementById('gridW').value) || 16));
+  map.rows = Math.max(1, Math.min(50, parseInt(document.getElementById('gridH').value) || 12));
+  document.getElementById('gridW').value = map.cols; document.getElementById('gridH').value = map.rows;
+  buildGrid(map); saveToStorage(); toast('サイズ変更: ' + map.cols + '×' + map.rows);
+}
+
+// ===== LAYER / TOOL =====
+function setActiveLayer(layer) {
+  activeLayer = layer;
+  selectedTile = null;
+  multiSelected.clear(); multiSelectMode = false;
+  document.getElementById('btnMultiSelect').classList.remove('active');
+  document.getElementById('movePanel').style.display = 'none';
+  document.getElementById('btnLayerBg').classList.toggle('active', layer === 'bg');
+  document.getElementById('btnLayerIcon').classList.toggle('active', layer === 'icon');
+  renderCategories(); renderPalette();
+}
+function switchSideTab(name, btn) {
+  document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active'); btn.classList.add('active');
+}
+function setTool(tool) {
+  currentTool = tool;
+  document.querySelectorAll('#btnPen,#btnEraser,#btnFill,#btnSpoit').forEach(b => b.classList.remove('active'));
+  const btnId = tool === 'spoit' ? 'btnSpoit' : ('btn' + tool.charAt(0).toUpperCase() + tool.slice(1));
+  document.getElementById(btnId).classList.add('active');
+  document.getElementById('cursorPreview').style.display = 'none';
+}
+
+// ===== COLOR PALETTE =====
+function updateFillDot() {
+  const dot = document.getElementById('fillColorDot');
+  if (dot) dot.style.background = fillColor || 'repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50%/12px 12px';
+}
+function buildColorPalette() {
+  const popup = document.getElementById('colorPalettePopup');
+  popup.innerHTML = '<div class="color-palette-label">塗りつぶし色を選んでください</div><div class="color-palette-grid" id="colorGrid"></div><div class="color-custom-row"><label class="color-custom-label">カスタムカラー:</label><input type="color" id="customColorInput" class="color-custom-input" value="' + (fillColor || '#a5d6a7') + '"><button class="btn color-custom-btn" id="customColorApply">適用</button></div>';
+  const grid = document.getElementById('colorGrid');
+  FILL_COLORS.forEach(color => {
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch' + (color === fillColor ? ' active' : '') + (!color ? ' color-none' : '');
+    if (color) sw.style.background = color;
+    sw.title = color || '色なし（消去）';
+    sw.onclick = (e) => { e.stopPropagation(); fillColor = color; updateFillDot(); buildColorPalette(); popup.classList.remove('show'); setTool('fill'); };
+    grid.appendChild(sw);
+  });
+  document.getElementById('customColorApply').onclick = (e) => {
+    e.stopPropagation();
+    fillColor = document.getElementById('customColorInput').value;
+    updateFillDot(); popup.classList.remove('show'); setTool('fill');
+  };
+  document.getElementById('customColorInput').onclick = (e) => e.stopPropagation();
+}
+function onFillClick() {
+  const popup = document.getElementById('colorPalettePopup');
+  if (popup.classList.contains('show')) {
+    popup.classList.remove('show');
+  } else {
+    buildColorPalette();
+    popup.classList.add('show');
+  }
+}
+document.addEventListener('click', e => { if (!e.target.closest('#btnFill') && !e.target.closest('.color-palette-popup')) document.getElementById('colorPalettePopup').classList.remove('show'); });
+
+// ===== CELL INTERACTIONS =====
+function onCellMouseDown(e) { e.preventDefault(); if (e.button === 2) return; isMouseDown = true; applyTool(+e.currentTarget.dataset.row, +e.currentTarget.dataset.col); }
+function onCellMouseEnter(e) { if (!isMouseDown) return; applyTool(+e.currentTarget.dataset.row, +e.currentTarget.dataset.col); }
+document.addEventListener('mouseup', () => { isMouseDown = false; });
+
+function onCellHover(e) {
+  const r = +e.currentTarget.dataset.row, c = +e.currentTarget.dataset.col;
+  const map = getActiveMap(); if (!map) return;
+  const d = ensureCellData(map, r, c);
+  let info = `<div class="coord">${String.fromCharCode(65 + r)}${c + 1}</div>`;
+  if (d.bg.color) info += `背景色: <span style="display:inline-block;width:12px;height:12px;background:${d.bg.color};border-radius:2px;vertical-align:middle;border:1px solid rgba(0,0,0,0.2);"></span> `;
+  if (d.bg.tile) info += `<br>背景画像: ${d.bg.tile.name}`;
+  if (d.icon.tile) info += `<br>アイコン: ${d.icon.tile.name}`;
+  if (!d.bg.color && !d.bg.tile && !d.icon.tile) info += '空のセル';
+  document.getElementById('cellInfo').innerHTML = info;
+  selectedCell = { r, c }; renderLayerDetail(r, c, map);
+}
+
+function renderLayerDetail(r, c, map) {
+  const det = document.getElementById('layerDetail');
+  const d = ensureCellData(map, r, c);
+  let html = '';
+  // BG
+  html += '<div class="layer-label">🖼 背景レイヤー</div>';
+  if (d.bg.color || d.bg.tile) {
+    html += '<div class="layer-entry">';
+    if (d.bg.color) html += `<div class="layer-color-box" style="background:${d.bg.color}"></div>`;
+    if (d.bg.tile) html += `<img src="${d.bg.tile.src}">`;
+    html += `<div class="layer-name">${d.bg.color ? d.bg.color : ''}${d.bg.tile ? ' ' + d.bg.tile.name : ''}</div>`;
+    html += `<div class="layer-del" onclick="clearCellLayer(${r},${c},'bg')">✕</div></div>`;
+  } else { html += '<div class="info-text" style="margin-bottom:8px;">なし</div>'; }
+  // Icon
+  html += '<div class="layer-label" style="margin-top:8px;">📌 アイコンレイヤー</div>';
+  if (d.icon.tile) {
+    html += `<div class="layer-entry"><img src="${d.icon.tile.src}"><div class="layer-name">${d.icon.tile.name}</div><div class="layer-del" onclick="clearCellLayer(${r},${c},'icon')">✕</div></div>`;
+  } else { html += '<div class="info-text">なし</div>'; }
+  det.innerHTML = html;
+}
+
+function clearCellLayer(r, c, layer) {
+  const map = getActiveMap(); if (!map) return; saveUndo();
+  const d = ensureCellData(map, r, c);
+  if (layer === 'bg') { d.bg.color = null; d.bg.tile = null; }
+  else { d.icon.tile = null; }
+  renderCell(r, c); renderLayerDetail(r, c, map); saveToStorage();
+}
+
+function onCellRightClick(e) {
+  e.preventDefault();
+  const r = +e.currentTarget.dataset.row, c = +e.currentTarget.dataset.col;
+  const map = getActiveMap(); if (!map) return;
+  const d = ensureCellData(map, r, c);
+  if (activeLayer === 'bg' && (d.bg.color || d.bg.tile)) { saveUndo(); d.bg.color = null; d.bg.tile = null; renderCell(r, c); saveToStorage(); }
+  else if (activeLayer === 'icon' && d.icon.tile) { saveUndo(); d.icon.tile = null; renderCell(r, c); saveToStorage(); }
+}
+
+function onCellDrop(e) {
+  e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+  const r = +e.currentTarget.dataset.row, c = +e.currentTarget.dataset.col;
+  const files = e.dataTransfer.files;
+  if (files.length > 0 && files[0].type.startsWith('image/')) {
+    const reader = new FileReader(); reader.onload = ev => {
+      const ac = getActiveCat(); const cat = (ac === 'すべて') ? getDefaultCat() : ac;
+      const tile = addTile(files[0].name.replace(/\.[^.]+$/, ''), ev.target.result, cat);
+      const map = getActiveMap(); saveUndo();
+      const d = ensureCellData(map, r, c);
+      if (activeLayer === 'bg') d.bg.tile = { src: tile.src, name: tile.name };
+      else d.icon.tile = { src: tile.src, name: tile.name };
+      renderCell(r, c); saveToStorage();
+    }; reader.readAsDataURL(files[0]);
+  }
+}
+
+function applyTool(r, c) {
+  const map = getActiveMap(); if (!map) return;
+  const d = ensureCellData(map, r, c);
+  if (currentTool === 'pen' && selectedTile) {
+    saveUndo();
+    if (activeLayer === 'bg') { d.bg.tile = { src: selectedTile.src, name: selectedTile.name }; d.bg.color = null; }
+    else d.icon.tile = { src: selectedTile.src, name: selectedTile.name };
+    renderCell(r, c); saveToStorage();
+  } else if (currentTool === 'eraser') {
+    saveUndo();
+    if (activeLayer === 'bg') { d.bg.color = null; d.bg.tile = null; }
+    else { d.icon.tile = null; }
+    renderCell(r, c); saveToStorage();
+  } else if (currentTool === 'fill') {
+    saveUndo(); d.bg.color = fillColor; d.bg.tile = null; renderCell(r, c); saveToStorage();
+  } else if (currentTool === 'spoit') {
+    // Pick up cell content and switch to pen
+    if (activeLayer === 'bg') {
+      if (d.bg.tile) {
+        selectedTile = { id: -1, src: d.bg.tile.src, name: d.bg.tile.name };
+        setTool('pen'); toast('背景を取得しました');
+      } else if (d.bg.color) {
+        fillColor = d.bg.color; updateFillDot();
+        setTool('fill'); toast('色を取得しました');
+      }
+    } else {
+      if (d.icon.tile) {
+        selectedTile = { id: -1, src: d.icon.tile.src, name: d.icon.tile.name };
+        setTool('pen'); toast('アイコンを取得しました');
+      }
+    }
+  }
+}
+
+// ===== CELL CLIPBOARD =====
+let cellClipboard = null;
+
+function copyCellAtCursor() {
+  if (!selectedCell) return;
+  const map = getActiveMap(); if (!map) return;
+  const d = ensureCellData(map, selectedCell.r, selectedCell.c);
+  cellClipboard = JSON.parse(JSON.stringify(d));
+}
+
+function pasteCellAtCursor() {
+  if (!selectedCell || !cellClipboard) return;
+  const map = getActiveMap(); if (!map) return;
+  saveUndo();
+  map.mapData[selectedCell.r][selectedCell.c] = JSON.parse(JSON.stringify(cellClipboard));
+  renderCell(selectedCell.r, selectedCell.c); saveToStorage();
+}
+
+// ===== TILES =====
+// Helper: get current tile list and category list based on activeLayer
+function getTiles() { return activeLayer === 'bg' ? project.bgTiles : project.iconTiles; }
+function setTiles(arr) { if (activeLayer === 'bg') project.bgTiles = arr; else project.iconTiles = arr; }
+function getCats() { return activeLayer === 'bg' ? project.bgCategories : project.iconCategories; }
+function getActiveCat() { return activeLayer === 'bg' ? activeBgCategory : activeIconCategory; }
+function setActiveCat(c) { if (activeLayer === 'bg') activeBgCategory = c; else activeIconCategory = c; }
+function getDefaultCat() { return activeLayer === 'bg' ? '' : '道'; }
+
+function addTile(name, src, category, folder) {
+  if (activeLayer === 'bg') category = '';
+  else category = category || getDefaultCat();
+  const id = project.tileIdCounter++;
+  const tile = { id, name, src, category, folder: folder || null };
+  getTiles().push(tile);
+  if (activeLayer === 'icon') {
+    const cats = getCats();
+    if (category && !cats.includes(category)) { cats.push(category); renderCategories(); }
+  }
+  renderPalette(); saveToStorage(); return tile;
+}
+function handleFileUpload(files) {
+  let cat = '';
+  if (activeLayer === 'icon') {
+    const ac = getActiveCat();
+    cat = (ac === 'すべて') ? getDefaultCat() : ac;
+  }
+  Array.from(files).forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    // Detect folder name from webkitRelativePath
+    let folder = null;
+    if (file.webkitRelativePath) {
+      const parts = file.webkitRelativePath.split('/');
+      if (parts.length >= 2) folder = parts[parts.length - 2]; // immediate parent folder
+    }
+    const reader = new FileReader();
+    reader.onload = ev => { addTile(file.name.replace(/\.[^.]+$/, ''), ev.target.result, cat, folder); };
+    reader.readAsDataURL(file);
+  });
+}
+function renderPalette() {
+  const grid = document.getElementById('tileGrid'); grid.innerHTML = '';
+  const tiles = getTiles();
+  let filtered;
+  if (activeLayer === 'bg') {
+    filtered = tiles;
+  } else {
+    const ac = getActiveCat();
+    filtered = ac === 'すべて' ? tiles : tiles.filter(t => t.category === ac);
+  }
+  // Layer indicator
+  const layerLabel = activeLayer === 'bg' ? '🖼 背景パレット' : '📌 アイコンパレット';
+  const labelDiv = document.createElement('div');
+  labelDiv.style.cssText = 'grid-column:1/-1;font-family:DotGothic16,cursive;font-size:12px;padding:4px 8px;border-radius:4px;text-align:center;margin-bottom:4px;' +
+    (activeLayer === 'bg' ? 'background:#e8f5e9;color:#2e7d32;' : 'background:#e3f2fd;color:#1565c0;');
+  labelDiv.textContent = layerLabel;
+  grid.appendChild(labelDiv);
+
+  // Separate into loose tiles and folder groups
+  const loose = filtered.filter(t => !t.folder);
+  const folderMap = {};
+  filtered.filter(t => t.folder).forEach(t => {
+    if (!folderMap[t.folder]) folderMap[t.folder] = [];
+    folderMap[t.folder].push(t);
+  });
+
+  // Render loose tiles first
+  loose.forEach(tile => grid.appendChild(createTileItem(tile, '_loose')));
+
+  // Render folder groups
+  Object.keys(folderMap).forEach(folderName => {
+    const folderTiles = folderMap[folderName];
+    const isCollapsed = collapsedFolders.has(folderName);
+    const group = document.createElement('div');
+    group.className = 'folder-group';
+
+    const header = document.createElement('div');
+    header.className = 'folder-header';
+
+    // Check if all tiles in folder are selected
+    const allSelected = folderTiles.every(t => multiSelected.has(t.id));
+    const someSelected = folderTiles.some(t => multiSelected.has(t.id));
+
+    let checkHtml = '';
+    if (multiSelectMode) {
+      const checkCls = allSelected ? 'folder-check checked' : (someSelected ? 'folder-check partial' : 'folder-check');
+      checkHtml = `<span class="${checkCls}">${allSelected ? '✓' : (someSelected ? '−' : '')}</span>`;
+    }
+
+    header.innerHTML = `${checkHtml}<span class="folder-arrow ${isCollapsed ? 'closed' : ''}">▼</span>📁 ${folderName}<span class="folder-count">${folderTiles.length}枚</span>`;
+
+    header.onclick = (e) => {
+      // If clicking the checkbox area in multi-select mode
+      if (multiSelectMode && e.target.closest('.folder-check')) {
+        if (allSelected) { folderTiles.forEach(t => multiSelected.delete(t.id)); }
+        else { folderTiles.forEach(t => multiSelected.add(t.id)); }
+        renderPalette();
+        return;
+      }
+      if (collapsedFolders.has(folderName)) collapsedFolders.delete(folderName);
+      else collapsedFolders.add(folderName);
+      renderPalette();
+    };
+    group.appendChild(header);
+
+    const tilesContainer = document.createElement('div');
+    tilesContainer.className = 'folder-tiles' + (isCollapsed ? ' hidden' : '');
+    folderTiles.forEach(tile => tilesContainer.appendChild(createTileItem(tile, 'folder_' + folderName)));
+    group.appendChild(tilesContainer);
+
+    grid.appendChild(group);
+  });
+
+  if (filtered.length === 0 && grid.children.length <= 1) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'grid-column:1/-1;text-align:center;color:var(--text-dim);font-size:12px;padding:20px;';
+    empty.innerHTML = 'タイルがありません<br>「画像追加」で追加してください';
+    grid.appendChild(empty);
+  }
+  updateMSUI();
+}
+
+function createTileItem(tile, dragGroup) {
+  const item = document.createElement('div');
+  let cls = 'tile-item'; if (selectedTile && selectedTile.id === tile.id) cls += ' selected';
+  if (multiSelectMode) cls += ' show-check'; if (multiSelected.has(tile.id)) cls += ' multi-selected';
+  item.className = cls;
+  item.dataset.tileId = tile.id;
+  item.dataset.dragGroup = dragGroup || '';
+
+  if (!multiSelectMode) {
+    item.draggable = true;
+    item.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', tile.id);
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => item.classList.add('dragging'), 0);
+      window._dragTileId = tile.id;
+      window._dragGroup = dragGroup;
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      clearAllDropIndicators();
+      window._lastDropKey = null;
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (window._dragGroup !== dragGroup) return;
+      if (parseInt(window._dragTileId) === tile.id) return;
+      e.dataTransfer.dropEffect = 'move';
+      const rect = item.getBoundingClientRect();
+      const before = e.clientX < rect.left + rect.width / 2;
+      const key = tile.id + (before ? 'b' : 'a');
+      if (window._lastDropKey === key) return;
+      window._lastDropKey = key;
+      clearAllDropIndicators();
+      if (before) item.classList.add('drop-before');
+      else item.classList.add('drop-after');
+    });
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drop-before', 'drop-after');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      clearAllDropIndicators();
+      if (window._dragGroup !== dragGroup) return;
+      const fromId = parseInt(window._dragTileId);
+      const toId = tile.id;
+      if (fromId === toId) return;
+      const rect = item.getBoundingClientRect();
+      const insertBefore = e.clientX < (rect.left + rect.width / 2);
+      reorderTile(fromId, toId, insertBefore);
+    });
+  }
+
+  item.onclick = (e) => {
+    if (e.defaultPrevented) return;
+    if (multiSelectMode) { toggleTileMS(tile.id); } else { selectTile(tile); }
+  };
+  item.oncontextmenu = e => { e.preventDefault(); if (!multiSelectMode && confirm(`「${tile.name}」を削除？`)) { setTiles(getTiles().filter(t => t.id !== tile.id)); if (selectedTile && selectedTile.id === tile.id) selectedTile = null; renderPalette(); saveToStorage(); } };
+  const check = document.createElement('div'); check.className = 'check-overlay'; check.textContent = multiSelected.has(tile.id) ? '✓' : ''; item.appendChild(check);
+  const img = document.createElement('img'); img.src = tile.src; img.draggable = false; item.appendChild(img);
+  const nameEl = document.createElement('div'); nameEl.className = 'tile-name'; nameEl.textContent = tile.name; item.appendChild(nameEl);
+  return item;
+}
+
+function clearAllDropIndicators() {
+  document.querySelectorAll('.drop-before,.drop-after').forEach(el => el.classList.remove('drop-before', 'drop-after'));
+}
+
+function reorderTile(fromId, toId, insertBefore) {
+  const tiles = getTiles();
+  const fromIdx = tiles.findIndex(t => t.id === fromId);
+  if (fromIdx === -1) return;
+  const [moved] = tiles.splice(fromIdx, 1);
+  let toIdx = tiles.findIndex(t => t.id === toId);
+  if (toIdx === -1) return;
+  if (!insertBefore) toIdx += 1;
+  tiles.splice(toIdx, 0, moved);
+  renderPalette(); saveToStorage();
+}
+function selectTile(tile) { selectedTile = tile; renderPalette(); setTool('pen'); }
+function renderCategories() {
+  const tabs = document.getElementById('categoryTabs'); tabs.innerHTML = '';
+  if (activeLayer === 'bg') return; // bg has no categories
+  const cats = getCats();
+  const ac = getActiveCat();
+  cats.forEach(cat => {
+    const tab = document.createElement('div'); tab.className = 'cat-tab' + (ac === cat ? ' active' : ''); tab.textContent = cat;
+    tab.onclick = () => { setActiveCat(cat); renderCategories(); renderPalette(); };
+    tabs.appendChild(tab);
+  });
+}
+
+// ===== MULTI-SELECT =====
+function toggleMultiSelect() { multiSelectMode = !multiSelectMode; if (!multiSelectMode) { multiSelected.clear(); document.getElementById('movePanel').style.display = 'none'; document.getElementById('newFolderPanel').style.display = 'none'; } document.getElementById('btnMultiSelect').classList.toggle('active', multiSelectMode); renderPalette(); }
+function toggleTileMS(id) { if (multiSelected.has(id)) multiSelected.delete(id); else multiSelected.add(id); renderPalette(); }
+function updateMSUI() { document.getElementById('multiSelectBar').style.display = multiSelectMode ? 'flex' : 'none'; document.getElementById('multiSelectCount').textContent = multiSelected.size + '個選択中'; if (multiSelected.size === 0) document.getElementById('movePanel').style.display = 'none'; }
+function selectAllVisible() { const ac = getActiveCat(); const tiles = getTiles(); const f = ac === 'すべて' ? tiles : tiles.filter(t => t.category === ac); f.forEach(t => multiSelected.add(t.id)); renderPalette(); }
+function clearMultiSelect() { multiSelected.clear(); document.getElementById('movePanel').style.display = 'none'; renderPalette(); }
+function deleteMultiSelected() { if (!multiSelected.size) { toast('タイルが選択されていません'); return; } if (!confirm(`${multiSelected.size}個削除？`)) return; setTiles(getTiles().filter(t => !multiSelected.has(t.id))); if (selectedTile && multiSelected.has(selectedTile.id)) selectedTile = null; multiSelected.clear(); document.getElementById('movePanel').style.display = 'none'; renderPalette(); saveToStorage(); toast('削除しました！'); }
+function toggleMovePanel() {
+  if (!multiSelected.size) { toast('先にタイルを選択してください'); return; }
+  const p = document.getElementById('movePanel'); if (p.style.display !== 'none') { p.style.display = 'none'; return; }
+  document.getElementById('movePanelLabel').textContent = multiSelected.size + '個をどこに移動する？';
+  const bc = document.getElementById('movePanelButtons'); bc.innerHTML = '';
+  const ac = getActiveCat();
+  getCats().filter(c => c !== 'すべて').forEach(cat => {
+    const btn = document.createElement('button'); btn.className = 'move-cat-btn';
+    if (cat === ac) { btn.style.opacity = '0.4'; btn.style.cursor = 'default'; btn.textContent = cat + '（現在）'; }
+    else { btn.textContent = cat; btn.onclick = () => doMove(cat); }
+    bc.appendChild(btn);
+  }); p.style.display = 'block';
+}
+function doMove(cat) { let n = 0; getTiles().forEach(t => { if (multiSelected.has(t.id)) { t.category = cat; n++; } }); multiSelected.clear(); document.getElementById('movePanel').style.display = 'none'; renderPalette(); saveToStorage(); toast(`${n}個を「${cat}」に移動！`); }
+
+function showNewFolderPrompt() {
+  if (!multiSelected.size) { toast('先にタイルを選択してください'); return; }
+  document.getElementById('movePanel').style.display = 'none';
+  const panel = document.getElementById('newFolderPanel');
+  document.getElementById('newFolderLabel').textContent = multiSelected.size + '個のタイルを新しいフォルダにまとめる';
+  document.getElementById('newFolderNameInput').value = '';
+  panel.style.display = 'block';
+  setTimeout(() => document.getElementById('newFolderNameInput').focus(), 50);
+}
+
+function doCreateFolder() {
+  const name = document.getElementById('newFolderNameInput').value.trim();
+  if (!name) { toast('フォルダ名を入力してください'); return; }
+  let n = 0;
+  getTiles().forEach(t => { if (multiSelected.has(t.id)) { t.folder = name; n++; } });
+  multiSelected.clear();
+  document.getElementById('newFolderPanel').style.display = 'none';
+  renderPalette(); saveToStorage();
+  toast(`${n}個を「${name}」フォルダにまとめました！`);
+}
+
+// ===== UNDO/REDO =====
+function saveUndo() { const map = getActiveMap(); if (!map) return; undoStack.push(JSON.parse(JSON.stringify(map.mapData))); if (undoStack.length > 50) undoStack.shift(); redoStack = []; }
+function undo() { if (!undoStack.length) return; const map = getActiveMap(); if (!map) return; redoStack.push(JSON.parse(JSON.stringify(map.mapData))); map.mapData = undoStack.pop(); buildGrid(map); saveToStorage(); }
+function redo() { if (!redoStack.length) return; const map = getActiveMap(); if (!map) return; undoStack.push(JSON.parse(JSON.stringify(map.mapData))); map.mapData = redoStack.pop(); buildGrid(map); saveToStorage(); }
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,select,textarea')) return;
+  if ((e.ctrlKey||e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  if ((e.ctrlKey||e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); redo(); }
+  if ((e.ctrlKey||e.metaKey) && e.key === 'c') { e.preventDefault(); copyCellAtCursor(); }
+  if ((e.ctrlKey||e.metaKey) && e.key === 'v') { e.preventDefault(); pasteCellAtCursor(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCell) {
+    e.preventDefault();
+    const map = getActiveMap(); if (!map) return;
+    const { r, c } = selectedCell;
+    const d = ensureCellData(map, r, c);
+    if (activeLayer === 'bg' && (d.bg.color || d.bg.tile)) { saveUndo(); d.bg.color = null; d.bg.tile = null; renderCell(r, c); saveToStorage(); }
+    else if (activeLayer === 'icon' && d.icon.tile) { saveUndo(); d.icon.tile = null; renderCell(r, c); saveToStorage(); }
+  }
+});
+
+// ===== EXPORT =====
+function exportMap() {
+  const map = getActiveMap(); if (!map) return;
+  const px = 64, canvas = document.getElementById('exportCanvas');
+  canvas.width = map.cols * px; canvas.height = map.rows * px;
+  const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Draw bg colors first
+  for (let r = 0; r < map.rows; r++) for (let c = 0; c < map.cols; c++) {
+    const d = ensureCellData(map, r, c);
+    if (d.bg.color) { ctx.fillStyle = d.bg.color; ctx.fillRect(c * px, r * px, px, px); }
+  }
+  // Collect images
+  const queue = [];
+  for (let r = 0; r < map.rows; r++) for (let c = 0; c < map.cols; c++) {
+    const d = ensureCellData(map, r, c);
+    if (d.bg.tile) queue.push({ r, c, src: d.bg.tile.src, z: 0 });
+    if (d.icon.tile) queue.push({ r, c, src: d.icon.tile.src, z: 1 });
+  }
+  if (!queue.length) { const a = document.createElement('a'); a.download = map.name + '.png'; a.href = canvas.toDataURL('image/png'); a.click(); toast('PNG出力！'); return; }
+  queue.sort((a, b) => a.z - b.z);
+  let drawn = 0;
+  queue.forEach(item => { const img = new Image(); img.onload = () => { ctx.drawImage(img, item.c * px, item.r * px, px, px); if (++drawn === queue.length) { const a = document.createElement('a'); a.download = map.name + '.png'; a.href = canvas.toDataURL('image/png'); a.click(); toast('PNG出力しました！🎉'); } }; img.src = item.src; });
+}
+
+// ===== FILE SAVE/LOAD =====
+function saveProjectFile() { syncCurrentMapToProject(); const a = document.createElement('a'); a.download = 'town-map-project.json'; a.href = URL.createObjectURL(new Blob([JSON.stringify(project)], { type: 'application/json' })); a.click(); toast('ファイル保存！💾'); }
+function loadProjectFile() {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
+  input.onchange = e => { const reader = new FileReader(); reader.onload = ev => {
+    try { const p = JSON.parse(ev.target.result); project = { ...project, ...p }; if (!project.maps.length) addMapTab(); renderMapTabs(); switchToMap(project.activeMapId || project.maps[0].id); renderCategories(); renderPalette(); saveToStorage(); toast('読み込みました！📂'); }
+    catch (err) { toast('エラー: ' + err.message); }
+  }; reader.readAsText(e.target.files[0]); }; input.click();
+}
+function clearMap() { const map = getActiveMap(); if (!map) return; if (!confirm('全消去しますか？')) return; saveUndo(); for (let r = 0; r < map.rows; r++) for (let c = 0; c < map.cols; c++) map.mapData[r][c] = { bg: { color: null, tile: null }, icon: { tile: null } }; buildGrid(map); saveToStorage(); }
+
+// ===== MISC =====
+document.addEventListener('mousemove', e => { const p = document.getElementById('cursorPreview'); if (p.style.display !== 'none') { p.style.left = (e.clientX + 12) + 'px'; p.style.top = (e.clientY + 12) + 'px'; } });
+// Show preview only inside map
+document.getElementById('mapContainer').addEventListener('mouseenter', () => {
+  const p = document.getElementById('cursorPreview');
+  if (currentTool === 'pen' && selectedTile) { p.src = selectedTile.src; p.style.display = 'block'; p.style.width = '40px'; p.style.height = '40px'; }
+});
+document.getElementById('mapContainer').addEventListener('mouseleave', () => {
+  document.getElementById('cursorPreview').style.display = 'none';
+});
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => { if (!e.target.closest('.map-cell')) { e.preventDefault(); const ac = getActiveCat(); const cat = (ac === 'すべて') ? getDefaultCat() : ac; Array.from(e.dataTransfer.files).forEach(file => { if (!file.type.startsWith('image/')) return; const reader = new FileReader(); reader.onload = ev => { addTile(file.name.replace(/\.[^.]+$/, ''), ev.target.result, cat); }; reader.readAsDataURL(file); }); } });
+
+// ===== GAME EXPORT =====
+function exportMapJs() {
+  syncCurrentMapToProject();
+  const map = getActiveMap();
+  if (!map) { toast('マップがありません'); return; }
+
+  const bg = [], icon = [];
+  for (let r = 0; r < map.rows; r++) {
+    const bgRow = [], iconRow = [];
+    for (let c = 0; c < map.cols; c++) {
+      const d = map.mapData[r] && map.mapData[r][c];
+      bgRow.push(d && d.bg && d.bg.tile ? d.bg.tile.name : null);
+      iconRow.push(d && d.icon && d.icon.tile ? d.icon.tile.name : null);
+    }
+    bg.push(bgRow);
+    icon.push(iconRow);
+  }
+
+  const now = new Date().toLocaleString('ja-JP');
+  const content =
+`// ============================================
+// マップデータ（マップエディターから自動生成）
+// マップ名: ${map.name}
+// サイズ: ${map.cols}列 × ${map.rows}行
+// 生成日時: ${now}
+// ============================================
+// 画像は town-game/mapimg/ フォルダに入れてください
+
+// 背景レイヤー（草地・道路など）
+const townMapBg = ${JSON.stringify(bg, null, 4)};
+
+// アイコンレイヤー（施設・建物など）
+const townMapIcon = ${JSON.stringify(icon, null, 4)};
+`;
+
+  const a = document.createElement('a');
+  a.download = 'mapdata.js';
+  a.href = URL.createObjectURL(new Blob([content], { type: 'application/javascript' }));
+  a.click();
+  toast('mapdata.js を出力しました！📄');
+}
+
+async function exportUsedImages() {
+  syncCurrentMapToProject();
+  const usedTiles = new Map(); // name -> src
+
+  project.maps.forEach(map => {
+    for (let r = 0; r < map.rows; r++) {
+      for (let c = 0; c < map.cols; c++) {
+        const d = map.mapData[r] && map.mapData[r][c];
+        if (!d) continue;
+        if (d.bg && d.bg.tile && d.bg.tile.src) usedTiles.set(d.bg.tile.name, d.bg.tile.src);
+        if (d.icon && d.icon.tile && d.icon.tile.src) usedTiles.set(d.icon.tile.name, d.icon.tile.src);
+      }
+    }
+  });
+
+  if (!usedTiles.size) { toast('使用中の画像がありません'); return; }
+
+  if ('showDirectoryPicker' in window) {
+    // フォルダ選択ダイアログで直接保存（Chrome等）
+    let dirHandle;
+    try {
+      dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    } catch (e) {
+      if (e.name === 'AbortError') return; // キャンセル
+      toast('エラー: ' + e.message); return;
+    }
+    let count = 0;
+    for (const [name, src] of usedTiles) {
+      try {
+        const res = await fetch(src);
+        const blob = await res.blob();
+        const fileHandle = await dirHandle.getFileHandle(`${name}.png`, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        count++;
+        toast(`保存中... ${count} / ${usedTiles.size}枚`);
+      } catch (e) {
+        toast(`エラー（${name}）: ` + e.message);
+      }
+    }
+    toast(`✅ ${count}枚を保存しました！`);
+  } else {
+    // ZIPにまとめてダウンロード（フォールバック）
+    if (typeof JSZip === 'undefined') { toast('ZIPライブラリが読み込めませんでした'); return; }
+    toast('ZIPを作成中...');
+    const zip = new JSZip();
+    const folder = zip.folder('mapimg');
+    for (const [name, src] of usedTiles) {
+      const base64 = src.split(',')[1];
+      folder.file(`${name}.png`, base64, { base64: true });
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.download = 'mapimg.zip';
+    a.href = URL.createObjectURL(blob);
+    a.click();
+    toast(`📦 mapimg.zip をダウンロードしました！（解凍して使ってね）`);
+  }
+}
+
+// ===== TILE LIST =====
+function showTileList() {
+  syncCurrentMapToProject();
+  const usedMap = new Map(); // src -> {src, name, hasBg, hasIcon}
+  project.maps.forEach(map => {
+    for (let r = 0; r < map.rows; r++) {
+      for (let c = 0; c < map.cols; c++) {
+        const d = map.mapData[r] && map.mapData[r][c];
+        if (!d) continue;
+        if (d.bg && d.bg.tile && d.bg.tile.src) {
+          const t = usedMap.get(d.bg.tile.src) || { src: d.bg.tile.src, name: d.bg.tile.name, hasBg: false, hasIcon: false };
+          t.hasBg = true; usedMap.set(d.bg.tile.src, t);
+        }
+        if (d.icon && d.icon.tile && d.icon.tile.src) {
+          const t = usedMap.get(d.icon.tile.src) || { src: d.icon.tile.src, name: d.icon.tile.name, hasBg: false, hasIcon: false };
+          t.hasIcon = true; usedMap.set(d.icon.tile.src, t);
+        }
+      }
+    }
+  });
+  const tiles = [...usedMap.values()];
+  document.getElementById('tileListCount').textContent = tiles.length + '種類';
+  const grid = document.getElementById('tileListGrid');
+  grid.innerHTML = '';
+  if (!tiles.length) {
+    grid.innerHTML = '<div class="tile-list-empty">まだマップにタイルが置かれていません</div>';
+  } else {
+    tiles.forEach(tile => {
+      const badgeClass = (tile.hasBg && tile.hasIcon) ? 'badge-both' : tile.hasIcon ? 'badge-icon' : 'badge-bg';
+      const badgeText = (tile.hasBg && tile.hasIcon) ? '背景＋アイコン' : tile.hasIcon ? 'アイコン' : '背景';
+      const item = document.createElement('div');
+      item.className = 'tile-list-item';
+      item.innerHTML = `
+        <img class="tile-list-img" src="${tile.src}" alt="${tile.name}">
+        <input class="tile-list-name-input" type="text" value="${tile.name}" data-src="${tile.src}" placeholder="名前を入力...">
+        <span class="tile-list-badge ${badgeClass}">${badgeText}</span>
+      `;
+      grid.appendChild(item);
+    });
+  }
+  document.getElementById('tileListModal').classList.add('show');
+}
+function closeTileList() {
+  document.getElementById('tileListModal').classList.remove('show');
+}
+function saveTileNames() {
+  const inputs = document.querySelectorAll('#tileListGrid .tile-list-name-input');
+  const renameMap = new Map(); // src -> newName
+  inputs.forEach(input => {
+    const name = input.value.trim();
+    if (name) renameMap.set(input.dataset.src, name);
+  });
+  // Update palette tiles
+  [...project.bgTiles, ...project.iconTiles].forEach(tile => {
+    if (renameMap.has(tile.src)) tile.name = renameMap.get(tile.src);
+  });
+  // Update all map cells
+  project.maps.forEach(map => {
+    for (let r = 0; r < map.rows; r++) {
+      for (let c = 0; c < map.cols; c++) {
+        const d = map.mapData[r] && map.mapData[r][c];
+        if (!d) continue;
+        if (d.bg && d.bg.tile && renameMap.has(d.bg.tile.src)) d.bg.tile.name = renameMap.get(d.bg.tile.src);
+        if (d.icon && d.icon.tile && renameMap.has(d.icon.tile.src)) d.icon.tile.name = renameMap.get(d.icon.tile.src);
+      }
+    }
+  });
+  saveToStorage();
+  renderPalette();
+  closeTileList();
+  toast('タイル名を保存しました！✅');
+}
+
+function reimportFromMapimg() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.webkitdirectory = true;
+
+  input.onchange = async () => {
+    const files = Array.from(input.files).filter(f => f.type.startsWith('image/'));
+    if (!files.length) { toast('画像ファイルが見つかりません'); return; }
+
+    toast(`${files.length}ファイルを読み込み中...`);
+
+    // ファイル名（拡張子なし）→ base64 のマップを作る
+    // webkitRelativePath 例: "mapimg/sogen.png" → "sogen"
+    //                        "mapimg/house/1kai1.png" → "house/1kai1"
+    const imgMap = new Map();
+    await Promise.all(files.map(file => new Promise(resolve => {
+      const parts = file.webkitRelativePath.split('/');
+      parts.shift(); // ルートフォルダ名（"mapimg"など）を除去
+      const tileName = parts.join('/').replace(/\.[^.]+$/, '');
+      const reader = new FileReader();
+      reader.onload = ev => { imgMap.set(tileName, ev.target.result); resolve(); };
+      reader.readAsDataURL(file);
+    })));
+
+    // パレットのタイルを更新
+    let updatedTiles = 0;
+    [...project.bgTiles, ...project.iconTiles].forEach(tile => {
+      if (imgMap.has(tile.name)) { tile.src = imgMap.get(tile.name); updatedTiles++; }
+    });
+
+    // 全マップのセルを更新
+    syncCurrentMapToProject();
+    let updatedCells = 0;
+    project.maps.forEach(map => {
+      for (let r = 0; r < map.rows; r++) {
+        for (let c = 0; c < map.cols; c++) {
+          const d = map.mapData[r] && map.mapData[r][c];
+          if (!d) continue;
+          if (d.bg && d.bg.tile && imgMap.has(d.bg.tile.name)) {
+            d.bg.tile.src = imgMap.get(d.bg.tile.name); updatedCells++;
+          }
+          if (d.icon && d.icon.tile && imgMap.has(d.icon.tile.name)) {
+            d.icon.tile.src = imgMap.get(d.icon.tile.name); updatedCells++;
+          }
+        }
+      }
+    });
+
+    saveToStorage();
+    renderPalette();
+    const activeMap = getActiveMap();
+    if (activeMap) buildGrid(activeMap);
+
+    closeTileList();
+    toast(`✅ 更新完了！タイル${updatedTiles}件・マスの画像${updatedCells}箇所を更新しました`);
+    showTileList();
+  };
+
+  input.click();
+}
+
+init();
+</script>
+</body>
+</html>

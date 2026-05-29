@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>アイテムエディタ - ふらっとタウン</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Hiragino Sans','Meiryo',sans-serif; font-size: 14px; background: #f0f2f5; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+.header { background: #3d6db5; color: white; padding: 10px 16px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.header h1 { font-size: 15px; flex: 1; }
+.header button { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+.btn-open  { background: white; color: #3d6db5; }
+.btn-save  { background: #27ae60; color: white; }
+.btn-save:disabled  { background: #8a8a8a; cursor: not-allowed; }
+.btn-backup{ background: #8e44ad; color: white; }
+.btn-backup:disabled{ background: #8a8a8a; cursor: not-allowed; }
+.btn-add   { background: #e67e22; color: white; }
+.btn-add:disabled{ background: #8a8a8a; cursor: not-allowed; }
+
+.mode-toggle { display: flex; background: rgba(255,255,255,0.15); border-radius: 6px; padding: 2px; gap: 2px; }
+.mode-btn { background: transparent; color: rgba(255,255,255,0.75); border: none; border-radius: 4px; padding: 5px 12px; cursor: pointer; font-size: 12px; font-weight: bold; transition: background .15s, color .15s; }
+.mode-btn.active { background: white; color: #3d6db5; }
+.mode-btn:hover:not(.active) { background: rgba(255,255,255,0.25); color: white; }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+
+.genre-bar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 12px; background: white; border-bottom: 1px solid #ddd; flex-shrink: 0; align-items: center; }
+.genre-btn { padding: 5px 10px 5px 14px; border: 1px solid #ddd; border-radius: 20px; background: white; cursor: pointer; font-size: 12px; color: #555; font-weight: bold; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+.genre-btn:hover { background: #f0f7ff; border-color: #3d6db5; color: #3d6db5; }
+.genre-btn.active { background: #3d6db5; color: white; border-color: #3d6db5; }
+.genre-del { font-size: 13px; line-height: 1; opacity: 0; transition: opacity .15s; padding: 0 2px; border-radius: 50%; }
+.genre-btn:hover .genre-del { opacity: .5; }
+.genre-btn.active .genre-del { opacity: .7; }
+.genre-del:hover { opacity: 1 !important; background: rgba(0,0,0,.15); }
+.genre-add-btn { padding: 5px 12px; border: 1px dashed #aaa; border-radius: 20px; background: white; cursor: pointer; font-size: 12px; color: #aaa; white-space: nowrap; }
+.genre-add-btn:hover { border-color: #27ae60; color: #27ae60; background: #f0fff4; }
+
+.sidebar { width: 210px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+.sidebar-label { padding: 6px 12px; font-size: 11px; font-weight: bold; color: #999; background: #f8f8f8; border-bottom: 1px solid #eee; text-transform: uppercase; letter-spacing: .5px; }
+.item-list { flex: 1; overflow-y: auto; }
+.item-btn { width: 100%; text-align: left; padding: 7px 14px; border: none; background: none; cursor: pointer; font-size: 12px; color: #444; border-left: 3px solid transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.item-btn:hover { background: #f5f5f5; }
+.item-btn.active { background: #fff5e6; color: #c0392b; border-left-color: #e67e22; font-weight: bold; }
+
+.edit-area { flex: 1; overflow-y: auto; padding: 20px; min-height: 0; display: flex; flex-direction: column; gap: 14px; }
+
+.placeholder { flex: 1; display: flex; align-items: center; justify-content: center; color: #bbb; font-size: 16px; flex-direction: column; gap: 10px; }
+
+.no-file-area { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; color: #aaa; }
+.open-big-btn { padding: 14px 28px; background: #3d6db5; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+.open-big-btn:hover { background: #2c5499; }
+
+.card { background: white; border-radius: 8px; border: 1px solid #e0e0e0; overflow: hidden; flex-shrink: 0; }
+.cards-row { display: flex; gap: 14px; align-items: flex-start; }
+.cards-row .card { flex: 1; min-width: 0; flex-shrink: 1; }
+.cards-col { display: flex; flex-direction: column; gap: 14px; flex: 1; min-width: 0; }
+.cards-col .card { flex-shrink: 0; }
+.card-header { padding: 10px 14px; font-size: 11px; font-weight: bold; color: #888; background: #fafafa; border-bottom: 1px solid #eee; text-transform: uppercase; letter-spacing: .5px; }
+.card-body { padding: 14px; }
+
+.edit-title { font-size: 17px; font-weight: bold; color: #333; margin-bottom: 14px; }
+
+.form-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.form-row:last-child { margin-bottom: 0; }
+.form-label { width: 80px; font-size: 13px; color: #666; flex-shrink: 0; }
+.form-input { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+.form-input:focus { border-color: #3d6db5; outline: none; }
+.f-text { flex: 1; }
+.f-num  { width: 90px; }
+.form-select { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; background: white; }
+.form-unit { color: #888; font-size: 13px; }
+.cd-rec { font-size: 11px; color: #e67e22; margin-left: 4px; }
+
+.budget-main { display: flex; align-items: baseline; gap: 6px; }
+.b-used { font-size: 26px; font-weight: bold; color: #3d6db5; }
+.b-used.over { color: #e74c3c; }
+.b-sep  { font-size: 18px; color: #ccc; }
+.b-max  { font-size: 22px; font-weight: bold; color: #27ae60; }
+.b-unit { font-size: 12px; color: #aaa; }
+.budget-formula { font-size: 11px; color: #bbb; margin-top: 4px; }
+.budget-bar-bg { margin-top: 8px; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+.budget-bar-fill { height: 100%; background: #3d6db5; border-radius: 4px; transition: width .2s; }
+.budget-bar-fill.over { background: #e74c3c; }
+.budget-warn { font-size: 12px; color: #e74c3c; margin-top: 4px; }
+
+.stat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.stat-name { width: 55px; font-size: 13px; color: #444; flex-shrink: 0; }
+.stat-bar-bg { flex: 1; height: 12px; background: #f0f0f0; border-radius: 6px; overflow: hidden; }
+.stat-bar-fill { height: 100%; background: #3d6db5; border-radius: 6px; transition: width .15s; }
+.stat-controls { display: flex; align-items: center; gap: 4px; }
+.stat-btn { width: 28px; height: 28px; border: 1px solid #ccc; border-radius: 4px; background: white; cursor: pointer; font-size: 18px; line-height: 1; color: #555; display: flex; align-items: center; justify-content: center; }
+.stat-btn:hover:not(:disabled) { background: #eaf3ff; border-color: #3d6db5; color: #3d6db5; }
+.stat-btn.minus:hover:not(:disabled) { background: #fff0f0; border-color: #e74c3c; color: #e74c3c; }
+.stat-btn:disabled { color: #ddd; cursor: not-allowed; background: #fafafa; }
+.stat-value { width: 28px; text-align: center; font-size: 15px; font-weight: bold; color: #333; }
+
+.actions-row { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+.btn-delete { padding: 8px 18px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.btn-delete:hover { background: #c0392b; }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: #27ae60; color: white; padding: 10px 20px; border-radius: 20px; font-size: 13px; z-index: 9999; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.error { background: #e74c3c; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📦 アイテムエディタ</h1>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="modeNormal" onclick="switchMode('normal')">通常アイテム</button>
+    <button class="mode-btn" id="modeTonya" onclick="switchMode('tonya')">問屋専用</button>
+  </div>
+  <button class="btn-open" id="btnOpen" onclick="openFile()">📁 items.jsを開く</button>
+  <button class="btn-backup" id="btnBackup" onclick="downloadBackup()" disabled>📥 バックアップDL</button>
+  <button class="btn-add"    id="btnAdd"    onclick="addNewItem()"    disabled>＋ 新規追加</button>
+  <button class="btn-save"   id="btnSave"   onclick="saveFile()"      disabled>💾 保存</button>
+</div>
+
+<div class="genre-bar" id="genreBar" style="display:none"></div>
+
+<div class="layout">
+  <div class="no-file-area" id="noFileArea">
+    <div style="font-size:48px">📦</div>
+    <div style="font-size:16px" id="noFileMsg">items.js を開いて編集を始めよう</div>
+    <button class="open-big-btn" id="noFileBtn" onclick="openFile()">📁 items.js を開く</button>
+  </div>
+
+  <div class="sidebar" id="sidebar" style="display:none">
+    <div class="sidebar-label">アイテム</div>
+    <div class="item-list" id="itemList"></div>
+  </div>
+
+  <div class="edit-area" id="editArea" style="display:none">
+    <div class="placeholder" id="placeholder">
+      <span style="font-size:32px">←</span>
+      <span>ジャンルとアイテムを選んでね</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+// ── 定数 ──────────────────────────────────────────────────────
+const DEFAULT_TARGET_GENRES = ['書籍','楽器','画材','スポーツ・アウトドア','日用品','ゲーム','おもちゃ・ホビー','ファッション','美容グッズ','電化製品'];
+let TARGET_GENRES = [...DEFAULT_TARGET_GENRES];
+
+let RATE = {
+  '書籍':150,
+  '楽器':130,'画材':130,'スポーツ・アウトドア':130,
+  '日用品':130,'ゲーム':130,'おもちゃ・ホビー':130,
+  'ファッション':130,'美容グッズ':130,'電化製品':130,
+};
+
+// items.js に保存された未知のジャンルを自動で追加しない特殊枠
+const EXCLUDED_GENRES = new Set(['薬','お花','ギフト','乗り物','フード','デザート','ドリンク','食料品','ケア']);
+
+const ALL_STATS = ['国語','英語','社会','数学','理科','体力','素早さ','気力','美術','音楽','ルックス','優しさ','面白さ','エロさ'];
+
+const CD_OPTIONS = ['15分','20分','30分','40分','45分','60分','70分','90分','null'];
+
+const GENRE_COMMENTS = {
+  '書籍':'書籍（学習系レート：総獲得×150円/pt）',
+  '楽器':'楽器（専門品レート：総獲得×130~150円/pt）',
+  '画材':'画材（専門品レート：総獲得×130~140円/pt）',
+  'スポーツ・アウトドア':'スポーツ・アウトドア（専門品レート：総獲得×130円/pt・価格順）',
+  'ファッション':'ファッション（パワー消費なし・クールダウン2倍ルール）',
+  '日用品':'日用品・雑貨（専門品レート：総獲得×130円/pt・価格順）',
+  '美容グッズ':'美容グッズ（パワー消費なし・クールダウン2倍ルール）',
+  '電化製品':'電化製品（専門品レート：総獲得×300円/pt・価格順）\n    // グループA（1.5倍クールダウン・頭脳消費少なめ）：電気ケトル〜冷蔵庫\n    // グループB（通常クールダウン・頭脳消費多め）：液晶タブレット〜一眼レフ',
+  'ゲーム':'ゲーム（パロディ名・価格順）',
+  'おもちゃ・ホビー':'おもちゃ・ホビー（専門品レート：総獲得×130円/pt・価格順）',
+  '薬':'薬（病気治療系は病院のみ。伝説の薬だけ特別枠）\n    // パワー・能力値回復系',
+  'お花':'お花（プチ回復＋能力値・価格順）',
+  'ギフト':'ギフト（準備中）',
+  '乗り物':'乗り物（特殊枠：タウン間移動速度・CDなし・価格順）',
+};
+
+// ── モード ────────────────────────────────────────────────────
+let editMode = 'normal'; // 'normal' | 'tonya'
+
+function switchMode(mode) {
+  if (editMode === mode) return;
+  editMode = mode;
+  document.getElementById('modeNormal').classList.toggle('active', mode === 'normal');
+  document.getElementById('modeTonya').classList.toggle('active', mode === 'tonya');
+  const label = mode === 'tonya' ? 'tonya-items.js' : 'items.js';
+  document.getElementById('btnOpen').textContent = `📁 ${label}を開く`;
+  // ジャンルリストをモードに応じてリセット
+  TARGET_GENRES.length = 0;
+  if (mode === 'normal') DEFAULT_TARGET_GENRES.forEach(g => TARGET_GENRES.push(g));
+  // ファイルを閉じてリセット
+  allItems = []; origText = ''; fileHandle = null; curGenre = null; curIdx = null;
+  document.getElementById('genreBar').style.display = 'none';
+  document.getElementById('noFileArea').style.display = 'flex';
+  document.getElementById('noFileMsg').textContent = `${label} を開いて編集を始めよう`;
+  document.getElementById('noFileBtn').textContent = `📁 ${label} を開く`;
+  document.getElementById('editArea').style.display = 'none';
+  document.getElementById('btnBackup').disabled = true;
+  document.getElementById('btnAdd').disabled = true;
+  document.getElementById('btnSave').disabled = true;
+}
+
+// ── 状態 ──────────────────────────────────────────────────────
+let allItems = [];       // shopItems / tonyaItems のコピー
+let origText  = '';      // 元テキスト
+let fileHandle= null;
+let curGenre  = null;
+let curIdx    = null;    // allItems 内インデックス
+
+// ── ファイルを開く ────────────────────────────────────────────
+async function openFile() {
+  if (!window.showOpenFilePicker) {
+    alert('File System Access APIが使えません。Chromeで開いてください。');
+    return;
+  }
+  try {
+    const opts = {
+      types: [{ description: 'JavaScript', accept: { 'text/javascript': ['.js'] } }],
+      startIn: fileHandle || 'desktop', // 2回目以降は前回のフォルダを記憶
+    };
+    [fileHandle] = await window.showOpenFilePicker(opts);
+    const file = await fileHandle.getFile();
+    origText = await file.text();
+    parseItems(origText);
+  } catch(e) {
+    if (e.name !== 'AbortError') showToast('ファイルを開けませんでした', true);
+  }
+}
+
+function syncGenresFromItems() {
+  allItems.forEach(it => {
+    if (it.type !== 'separator') return;
+    const g = it.name;
+    if (EXCLUDED_GENRES.has(g)) return;
+    if (!TARGET_GENRES.includes(g)) {
+      TARGET_GENRES.push(g);
+      if (!RATE[g]) RATE[g] = 130;
+    }
+  });
+}
+
+function parseItems(text) {
+  try {
+    const varName = editMode === 'tonya' ? 'tonyaItems' : 'shopItems';
+    const fn = new Function(text + `\n return ${varName};`);
+    allItems = JSON.parse(JSON.stringify(fn()));
+    syncGenresFromItems(); // items.js にある未知ジャンルを自動検出
+    showEditor();
+    showToast('✅ 読み込み完了！');
+  } catch(e) {
+    showToast('解析失敗: ' + e.message, true);
+  }
+}
+
+// ── エディタ表示 ──────────────────────────────────────────────
+function showEditor() {
+  document.getElementById('noFileArea').style.display = 'none';
+  document.getElementById('genreBar').style.display = 'flex';
+  document.getElementById('sidebar').style.display = 'flex';
+  document.getElementById('editArea').style.display = 'flex';
+  document.getElementById('btnSave').disabled   = false;
+  document.getElementById('btnBackup').disabled = false;
+  document.getElementById('btnAdd').disabled    = false;
+  renderGenreList();
+  selectGenre(TARGET_GENRES[0]);
+}
+
+// ── ジャンルリスト ────────────────────────────────────────────
+function renderGenreList() {
+  document.getElementById('genreBar').innerHTML =
+    TARGET_GENRES.map(g =>
+      `<button class="genre-btn${g===curGenre?' active':''}" onclick="selectGenre('${esc(g)}')">${g}<span class="genre-del" onclick="event.stopPropagation();deleteGenre('${esc(g)}')">✕</span></button>`
+    ).join('') +
+    `<button class="genre-add-btn" onclick="addNewGenre()">＋ ジャンル追加</button>`;
+}
+
+function deleteGenre(g) {
+  const itemIdxs = itemsOfGenre(g);
+  const msg = itemIdxs.length > 0
+    ? `「${g}」ジャンルとアイテム${itemIdxs.length}個を削除します。\nよろしいですか？`
+    : `「${g}」ジャンルを削除します。よろしいですか？`;
+  if (!confirm(msg)) return;
+
+  const sepIdx = allItems.findIndex(x => x.type === 'separator' && x.name === g);
+  const allIdxs = [...itemIdxs, ...(sepIdx !== -1 ? [sepIdx] : [])].sort((a,b) => b - a);
+  allIdxs.forEach(i => allItems.splice(i, 1));
+
+  TARGET_GENRES = TARGET_GENRES.filter(x => x !== g);
+  delete RATE[g];
+
+  if (curGenre === g) { curGenre = TARGET_GENRES[0] || null; curIdx = null; }
+  renderGenreList();
+  if (curGenre) { renderItemList(); clearForm('← アイテムを選んでね'); }
+  showToast(`「${g}」を削除したよ！`);
+}
+
+function addNewGenre() {
+  const name = prompt('新しいジャンル名を入力してください');
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  if (TARGET_GENRES.includes(trimmed)) {
+    showToast('そのジャンルはすでにあるよ！', true); return;
+  }
+  // セパレーターを allItems の末尾に追加
+  allItems.push({ type: 'separator', name: trimmed });
+  TARGET_GENRES.push(trimmed);
+  RATE[trimmed] = 130;
+  renderGenreList();
+  selectGenre(trimmed);
+  showToast(`「${trimmed}」を追加したよ！`);
+}
+
+function selectGenre(g) {
+  curGenre = g;
+  curIdx   = null;
+  renderGenreList();
+  renderItemList();
+  clearForm('← アイテムを選んでね');
+}
+
+// ── アイテムリスト ────────────────────────────────────────────
+function itemsOfGenre(g) {
+  const res = [];
+  let inG = false;
+  for (let i = 0; i < allItems.length; i++) {
+    const it = allItems[i];
+    if (it.type === 'separator') { inG = it.name === g; continue; }
+    if (inG) res.push(i);
+  }
+  return res;
+}
+
+function renderItemList() {
+  const idxs = itemsOfGenre(curGenre);
+  document.getElementById('itemList').innerHTML = idxs.length === 0
+    ? '<div style="padding:12px;color:#bbb;font-size:12px">アイテムなし</div>'
+    : idxs.map(i =>
+        `<button class="item-btn${i===curIdx?' active':''}" onclick="selectItem(${i})">${allItems[i].name}</button>`
+      ).join('');
+}
+
+function selectItem(i) {
+  curIdx = i;
+  renderItemList();
+  renderForm();
+}
+
+// ── フォーム描画 ──────────────────────────────────────────────
+function clearForm(msg) {
+  document.getElementById('placeholder').style.display = 'flex';
+  document.getElementById('placeholder').innerHTML =
+    `<span style="font-size:28px">←</span><span>${msg}</span>`;
+  const ea = document.getElementById('editArea');
+  [...ea.children].forEach(c => { if (c.id !== 'placeholder') c.remove(); });
+}
+
+function renderForm() {
+  if (curIdx === null) return;
+  const ea   = document.getElementById('editArea');
+  [...ea.children].forEach(c => { if (c.id !== 'placeholder') c.remove(); });
+  document.getElementById('placeholder').style.display = 'none';
+
+  const item  = allItems[curIdx];
+  const rate  = RATE[curGenre] || 130;
+  const maxPt = (item.price > 0 && item.useCount > 0)
+    ? Math.floor(item.price / item.useCount / rate) : 0;
+  const usedPt = Object.values(item.stats || {}).reduce((a,b)=>a+b, 0);
+  const pct    = maxPt > 0 ? Math.min(100, Math.round(usedPt/maxPt*100)) : 0;
+  const over   = usedPt > maxPt;
+  const recCD  = recCooldown(item.useCount);
+  const cdVal  = item.cooldown === null ? 'null' : (item.cooldown || '15分');
+
+  // タイトル
+  append(ea, 'div', 'edit-title', `✏️ ${item.name}`);
+
+  // 2カード横並びラッパー
+  const cardsRow = document.createElement('div');
+  cardsRow.className = 'cards-row';
+  ea.appendChild(cardsRow);
+
+  // 左列（基本情報 + 能力値予算）
+  const leftCol = document.createElement('div');
+  leftCol.className = 'cards-col';
+  cardsRow.appendChild(leftCol);
+
+  // ── 基本情報 ──
+  const basicHTML = `
+    <div class="form-row">
+      <span class="form-label">名前</span>
+      <input class="form-input f-text" type="text" value="${escA(item.name)}" oninput="upF('name',this.value)">
+    </div>
+    <div class="form-row">
+      <span class="form-label">価格</span>
+      <input class="form-input f-num" type="number" min="0" step="100" value="${item.price}" oninput="upF('price',parseInt(this.value)||0)">
+      <span class="form-unit">円</span>
+    </div>
+    <div class="form-row">
+      <span class="form-label">使用回数</span>
+      <select class="form-select" onchange="upF('useCount',parseInt(this.value))">
+        ${[2,3,4,5,6,7,8,9,10,12,15].map(n=>`<option value="${n}"${n===item.useCount?' selected':''}>${n}回</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <span class="form-label">クールダウン</span>
+      <select class="form-select" onchange="upF('cooldown',this.value==='null'?null:this.value)">
+        ${CD_OPTIONS.map(cd=>`<option value="${cd}"${cd===cdVal?' selected':''}>${cd==='null'?'なし':cd}</option>`).join('')}
+      </select>
+      <span class="cd-rec">推奨: ${recCD}</span>
+    </div>
+    <div class="form-row">
+      <span class="form-label">身体消費</span>
+      <input class="form-input f-num" type="number" min="0" value="${item.bodyConsume||0}" oninput="upF('bodyConsume',parseInt(this.value)||0)">
+    </div>
+    <div class="form-row">
+      <span class="form-label">頭脳消費</span>
+      <input class="form-input f-num" type="number" min="0" value="${item.brainConsume||0}" oninput="upF('brainConsume',parseInt(this.value)||0)">
+    </div>
+    ${item.description!==undefined?`
+    <div class="form-row">
+      <span class="form-label">説明文</span>
+      <input class="form-input f-text" type="text" value="${escA(item.description||'')}" oninput="upF('description',this.value)">
+    </div>`:''}
+  `;
+  appendCard(leftCol, '基本情報', basicHTML);
+
+  // ── 予算 ──
+  const budgetHTML = `
+    <div class="budget-main">
+      <span class="b-used${over?' over':''}">${usedPt}</span>
+      <span class="b-sep">/</span>
+      <span class="b-max">${maxPt}</span>
+      <span class="b-unit">pt</span>
+    </div>
+    <div class="budget-formula">レート ${rate}円/pt = ${item.price}円 ÷ ${item.useCount}回 ÷ ${rate}</div>
+    <div class="budget-bar-bg">
+      <div class="budget-bar-fill${over?' over':''}" style="width:${pct}%"></div>
+    </div>
+    ${over?'<div class="budget-warn">⚠ 上限を超えています！</div>':''}
+  `;
+  appendCard(leftCol, '能力値予算', budgetHTML);
+
+  // 削除ボタン
+  const actDiv = document.createElement('div');
+  actDiv.className = 'actions-row';
+  actDiv.innerHTML = `<button class="btn-delete" onclick="deleteItem()">🗑 このアイテムを削除</button>`;
+  leftCol.appendChild(actDiv);
+
+  // ── 能力値 ──
+  const canAdd = usedPt < maxPt;
+  const statsHTML = ALL_STATS.map(s => {
+    const v   = (item.stats||{})[s]||0;
+    const bp  = maxPt>0 ? Math.min(100,Math.round(v/maxPt*100)) : 0;
+    return `
+      <div class="stat-row">
+        <div class="stat-name">${s}</div>
+        <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${bp}%"></div></div>
+        <div class="stat-controls">
+          <button class="stat-btn minus" onclick="upS('${s}',-1)"${v<=0?' disabled':''}>−</button>
+          <div class="stat-value">${v}</div>
+          <button class="stat-btn" onclick="upS('${s}',1)"${!canAdd?' disabled':''}>＋</button>
+        </div>
+      </div>`;
+  }).join('');
+  appendCard(cardsRow, '能力値振り分け', statsHTML);
+}
+
+// ── フィールド更新 ────────────────────────────────────────────
+function upF(field, value) {
+  if (curIdx === null) return;
+  allItems[curIdx][field] = value;
+  if (field === 'name') {
+    renderItemList();
+    const titleEl = document.querySelector('.edit-title');
+    if (titleEl) titleEl.textContent = '✏️ ' + value;
+    return;
+  }
+  if (field === 'description') return;
+  renderForm();
+}
+
+function upS(stat, delta) {
+  if (curIdx === null) return;
+  const item  = allItems[curIdx];
+  const rate  = RATE[curGenre] || 130;
+  const maxPt = Math.floor((item.price||0)/(item.useCount||1)/rate);
+  const used  = Object.values(item.stats||{}).reduce((a,b)=>a+b,0);
+  const cur   = (item.stats||{})[stat]||0;
+  if (delta < 0 && cur <= 0) return;
+  if (delta > 0 && used >= maxPt) return;
+  if (!item.stats) item.stats = {};
+  const nv = cur + delta;
+  if (nv <= 0) delete item.stats[stat]; else item.stats[stat] = nv;
+  renderForm();
+}
+
+// ── 新規追加 ──────────────────────────────────────────────────
+function addNewItem() {
+  if (!curGenre) { showToast('ジャンルを選んでね', true); return; }
+  const idxs = itemsOfGenre(curGenre);
+  let at = allItems.length;
+  if (idxs.length > 0) {
+    const last = idxs[idxs.length-1];
+    for (let i = last+1; i < allItems.length; i++) {
+      if (allItems[i].type === 'separator') { at = i; break; }
+    }
+  } else {
+    for (let i = 0; i < allItems.length; i++) {
+      if (allItems[i].type==='separator' && allItems[i].name===curGenre) { at=i+1; break; }
+    }
+  }
+  const newItem = { name:'新規アイテム', price:1000, consumable:true, stats:{}, calorie:0, useCount:2, cooldown:'15分', bodyConsume:0, brainConsume:0 };
+  allItems.splice(at, 0, newItem);
+  if (curIdx !== null && curIdx >= at) curIdx++;
+  renderItemList();
+  selectItem(at);
+  showToast('追加！名前と価格を設定してね');
+}
+
+// ── 削除 ─────────────────────────────────────────────────────
+async function deleteItem() {
+  if (curIdx === null) return;
+  const name = allItems[curIdx].name;
+  if (!confirm(`「${name}」を削除します。\nよろしいですか？`)) return;
+  allItems.splice(curIdx, 1);
+  curIdx = null;
+  renderItemList();
+  clearForm('✅ 削除しました');
+  await saveFile();
+  showToast('削除して保存しました');
+}
+
+// ── 保存 ─────────────────────────────────────────────────────
+async function saveFile() {
+  if (!fileHandle) { showToast('先にファイルを開いてね', true); return; }
+  try {
+    const body    = serializeItems(allItems);
+    const varName = editMode === 'tonya' ? 'tonyaItems' : 'shopItems';
+    const regex   = new RegExp(`(const ${varName} = \\[)([\\s\\S]*?)(\\n\\];)`);
+    if (!regex.test(origText)) { showToast(`${varName} が見つかりません`, true); return; }
+    const newText = origText.replace(regex, `$1${body}$3`);
+    const w = await fileHandle.createWritable();
+    await w.write(newText);
+    await w.close();
+    origText = newText;
+    showToast('💾 保存しました！ゲームをリロードで反映されます');
+  } catch(e) {
+    showToast('保存失敗: ' + e.message, true);
+  }
+}
+
+// ── バックアップDL ────────────────────────────────────────────
+function downloadBackup() {
+  if (!origText) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([origText], { type:'text/javascript' }));
+  a.download = editMode === 'tonya' ? 'tonya-items.js.backup' : 'items.js.backup';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('📥 バックアップをダウンロードしました');
+}
+
+// ── シリアライズ ──────────────────────────────────────────────
+function serializeItems(items) {
+  const lines = [];
+  for (const item of items) {
+    if (item.type === 'separator') {
+      const c = GENRE_COMMENTS[item.name] || item.name;
+      lines.push(`\n    // ${c}`);
+      lines.push(`    { type: 'separator', name: '${item.name}' },`);
+      continue;
+    }
+    lines.push('    { ' + buildParts(item).join(', ') + ' },');
+  }
+  return lines.join('\n');
+}
+
+function buildParts(it) {
+  const p = [];
+  const s  = (k,v) => p.push(`${k}: ${JSON.stringify(v)}`);
+  const n  = (k,v) => p.push(`${k}: ${v}`);
+  const o  = (k,obj)=> p.push(`${k}: { ${Object.entries(obj).map(([a,b])=>`${a}: ${b}`).join(', ')} }`);
+
+  s('name', it.name);
+  n('price', it.price);
+  p.push('consumable: true');
+  if ('cures'  in it) s('cures', it.cures);
+  if ('stock'  in it) n('stock', it.stock);
+  if (it.effect && Object.keys(it.effect).length) o('effect', it.effect);
+  o('stats', it.stats || {});
+  n('calorie', it.calorie || 0);
+  n('useCount', it.useCount);
+  if (it.cooldown === null) p.push('cooldown: null');
+  else s('cooldown', it.cooldown);
+  n('bodyConsume',  it.bodyConsume  || 0);
+  n('brainConsume', it.brainConsume || 0);
+  if (it.description !== undefined) s('description', it.description);
+  if (it.image       !== undefined) s('image', it.image);
+  return p;
+}
+
+// ── ユーティリティ ────────────────────────────────────────────
+function recCooldown(n) {
+  if (n <= 3) return '15分';
+  if (n <= 5) return '20分';
+  if (n <= 7) return '30分';
+  return '45分';
+}
+function append(parent, tag, cls, text) {
+  const el = document.createElement(tag);
+  el.className = cls;
+  el.textContent = text;
+  parent.appendChild(el);
+}
+function appendCard(parent, header, bodyHTML) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-header">${header}</div><div class="card-body">${bodyHTML}</div>`;
+  parent.appendChild(card);
+}
+function esc(s)  { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escA(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+let toastTimer = null;
+function showToast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (err?' error':'');
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

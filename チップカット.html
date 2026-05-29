@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>タイルセットビューア</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Noto+Sans+JP:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+  }
+
+  .app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  h1 {
+    font-family: 'DotGothic16', cursive;
+    font-size: 28px;
+    text-align: center;
+    color: #7fdbca;
+    margin-bottom: 8px;
+    text-shadow: 0 0 20px rgba(127, 219, 202, 0.3);
+  }
+
+  .subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #16213e;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #2a2a4a;
+  }
+
+  .control-group label {
+    font-size: 13px;
+    color: #aaa;
+  }
+
+  .control-group select, .control-group input[type="range"] {
+    background: #0f3460;
+    color: #e0e0e0;
+    border: 1px solid #3a3a6a;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  .control-group input[type="range"] {
+    width: 100px;
+  }
+
+  .main-area {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .canvas-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 520px;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #2a2a4a;
+  }
+
+  .canvas-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  .overlay-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+
+  .info-panel {
+    width: 280px;
+    background: #16213e;
+    border-radius: 8px;
+    border: 1px solid #2a2a4a;
+    padding: 16px;
+    position: sticky;
+    top: 20px;
+  }
+
+  .info-panel h2 {
+    font-family: 'DotGothic16', cursive;
+    font-size: 16px;
+    color: #7fdbca;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #2a2a4a;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #1a1a2e;
+  }
+
+  .info-row .label { color: #888; }
+  .info-row .value { color: #c3e88d; font-family: monospace; }
+
+  .preview-area {
+    margin-top: 16px;
+    text-align: center;
+  }
+
+  .preview-area canvas {
+    margin: 8px auto;
+    image-rendering: pixelated;
+    border: 2px solid #3a3a6a;
+    background: repeating-conic-gradient(#333 0% 25%, #444 0% 50%) 50% / 16px 16px;
+  }
+
+  .selection-info {
+    margin-top: 12px;
+    padding: 12px;
+    background: #0f3460;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: monospace;
+    color: #c3e88d;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .btn {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 16px;
+    background: #e94560;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: background 0.2s;
+  }
+  .btn:hover { background: #c73550; }
+  .btn:disabled { background: #555; cursor: not-allowed; }
+
+  .mode-toggle {
+    display: flex;
+    gap: 4px;
+    background: #0f3460;
+    border-radius: 6px;
+    padding: 3px;
+  }
+  .mode-btn {
+    padding: 6px 14px;
+    border: none;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: all 0.2s;
+  }
+  .mode-btn.active {
+    background: #e94560;
+    color: #fff;
+  }
+
+  .zoom-display {
+    font-size: 13px;
+    color: #c3e88d;
+    font-family: monospace;
+    min-width: 36px;
+    text-align: center;
+  }
+
+  .dropzone {
+    border: 3px dashed #3a3a6a;
+    border-radius: 16px;
+    padding: 60px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #16213e;
+    margin-bottom: 20px;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: #7fdbca;
+    background: #1a2a4e;
+    box-shadow: 0 0 30px rgba(127, 219, 202, 0.15);
+  }
+  .dropzone .icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    display: block;
+  }
+  .dropzone .main-text {
+    font-family: 'DotGothic16', cursive;
+    font-size: 20px;
+    color: #7fdbca;
+    margin-bottom: 8px;
+  }
+  .dropzone .sub-text {
+    font-size: 13px;
+    color: #888;
+  }
+  .hidden { display: none !important; }
+
+  .reload-btn {
+    display: inline-block;
+    margin-bottom: 16px;
+    padding: 6px 14px;
+    background: #16213e;
+    color: #7fdbca;
+    border: 1px solid #3a3a6a;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: all 0.2s;
+  }
+  .reload-btn:hover { background: #1a2a4e; border-color: #7fdbca; }
+
+  .batch-panel {
+    background: #16213e;
+    border: 1px solid #2a2a4a;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+  }
+  .batch-panel h2 {
+    font-family: 'DotGothic16', cursive;
+    font-size: 16px;
+    color: #7fdbca;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #2a2a4a;
+  }
+  .batch-controls {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .batch-field label {
+    display: block;
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 4px;
+  }
+  .batch-field input, .batch-field select {
+    background: #0f3460;
+    color: #c3e88d;
+    border: 1px solid #3a3a6a;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 13px;
+    font-family: monospace;
+  }
+  .batch-field input { width: 140px; }
+  .batch-progress {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #888;
+  }
+  .batch-progress .bar-bg {
+    width: 100%;
+    height: 6px;
+    background: #0f3460;
+    border-radius: 3px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .batch-progress .bar-fill {
+    height: 100%;
+    background: #7fdbca;
+    border-radius: 3px;
+    transition: width 0.15s;
+    width: 0%;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <h1>Tile Viewer</h1>
+  <p class="subtitle">タイルセット画像をグリッド表示して、クリックでタイルを切り出せるよ！</p>
+
+  <div id="dropzone" class="dropzone" onclick="document.getElementById('fileInput').click()">
+    <span class="icon">🎨</span>
+    <div class="main-text">タイルセット画像をドロップ！</div>
+    <div class="sub-text">ここにドラッグ＆ドロップ、またはクリックしてファイルを選択</div>
+    <div class="sub-text" style="margin-top: 6px; color: #666;">PNG / JPG 対応</div>
+  </div>
+
+  <div id="editorArea" class="hidden">
+  <div style="text-align: center;">
+    <button class="reload-btn" onclick="resetViewer()">別の画像を読み込む</button>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>グリッドサイズ:</label>
+      <select id="gridSize">
+        <option value="8">8×8</option>
+        <option value="16" selected>16×16</option>
+        <option value="32">32×32</option>
+        <option value="48">48×48</option>
+        <option value="64">64×64</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>ズーム:</label>
+      <input type="range" id="zoomRange" min="1" max="6" value="2" step="1">
+      <span class="zoom-display" id="zoomDisplay">x2</span>
+    </div>
+    <div class="control-group">
+      <label>モード:</label>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="modeSingle" onclick="setMode('single')">1マス</button>
+        <button class="mode-btn" id="modeArea" onclick="setMode('area')">範囲選択</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-area">
+    <div class="canvas-wrapper">
+      <div class="canvas-container" id="canvasContainer">
+        <canvas id="mainCanvas"></canvas>
+        <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+      </div>
+    </div>
+    <div class="info-panel">
+      <h2>タイル情報</h2>
+      <div id="tileInfo">
+        <div class="info-row"><span class="label">画像サイズ</span><span class="value" id="imgSize">-</span></div>
+        <div class="info-row"><span class="label">グリッド</span><span class="value" id="gridInfo">-</span></div>
+        <div class="info-row"><span class="label">ホバー位置</span><span class="value" id="hoverPos">-</span></div>
+        <div class="info-row"><span class="label">選択範囲</span><span class="value" id="selRange">-</span></div>
+        <div class="info-row"><span class="label">ピクセル座標</span><span class="value" id="pixelPos">-</span></div>
+        <div class="info-row"><span class="label">切り出しサイズ</span><span class="value" id="cropSize">-</span></div>
+      </div>
+
+      <div class="preview-area">
+        <h2>プレビュー</h2>
+        <canvas id="previewCanvas" width="128" height="128"></canvas>
+        <div id="selectionCode" class="selection-info" style="display:none;"></div>
+        <div id="filenameArea" style="display:none; margin-top: 10px;">
+          <label style="font-size: 12px; color: #aaa; display: block; margin-bottom: 4px;">ファイル名：</label>
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <input type="text" id="filenameInput" value="tile" style="flex:1; background:#0f3460; color:#c3e88d; border:1px solid #3a3a6a; border-radius:4px; padding:6px 8px; font-size:13px; font-family:monospace; outline:none;">
+            <span style="color:#888; font-size:13px;">.png</span>
+          </div>
+        </div>
+        <button class="btn" id="downloadBtn" disabled onclick="downloadTile()">1枚で保存</button>
+        <button class="btn" id="selBatchBtn" disabled onclick="selectionBatchExport()" style="background:#0f9b8e;">選択範囲を一括切り出し</button>
+        <div id="selBatchProgress" class="batch-progress" style="display:none;">
+          <span id="selBatchStatus">処理中...</span>
+          <div class="bar-bg"><div class="bar-fill" id="selBatchBar"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="batch-panel">
+    <h2>一括切り出し</h2>
+    <p style="font-size:12px; color:#888; margin-bottom:12px;">全タイルをグリッドサイズで自動切り分けしてZIPでまとめてダウンロード！</p>
+    <div class="batch-controls">
+      <div class="batch-field">
+        <label>ファイル名のプレフィックス</label>
+        <input type="text" id="batchPrefix" value="tile" placeholder="tile">
+      </div>
+      <div class="batch-field">
+        <label>命名ルール</label>
+        <select id="batchNaming">
+          <option value="rowcol">{prefix}_行_列 (例: tile_0_0)</option>
+          <option value="serial">{prefix}_連番 (例: tile_001)</option>
+        </select>
+      </div>
+      <div class="batch-field">
+        <label>黒/透明タイルを除外</label>
+        <select id="batchSkipEmpty">
+          <option value="yes">する</option>
+          <option value="no">しない</option>
+        </select>
+      </div>
+      <button class="btn" id="batchBtn" onclick="batchExport()">ZIPで一括保存</button>
+    </div>
+    <div class="batch-progress" id="batchProgress" style="display:none;">
+      <span id="batchStatus">処理中...</span>
+      <div class="bar-bg"><div class="bar-fill" id="batchBar"></div></div>
+    </div>
+  </div>
+
+  </div><!-- /editorArea -->
+</div>
+
+<input type="file" id="fileInput" accept="image/*" style="display:none;">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+let img = new Image();
+let gridSize = 16;
+let zoom = 2;
+let mode = 'single';
+let hoverCol = -1, hoverRow = -1;
+let selStart = null, selEnd = null;
+let isDragging = false;
+
+const mainCanvas = document.getElementById('mainCanvas');
+const overlayCanvas = document.getElementById('overlayCanvas');
+const previewCanvas = document.getElementById('previewCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const overlayCtx = overlayCanvas.getContext('2d');
+const previewCtx = previewCanvas.getContext('2d');
+
+function loadImage(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    img.onload = () => {
+      document.getElementById('dropzone').classList.add('hidden');
+      document.getElementById('editorArea').classList.remove('hidden');
+      document.getElementById('imgSize').textContent = `${img.width}×${img.height}`;
+      updateGridInfo();
+      drawMain();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function resetViewer() {
+  img = new Image();
+  selStart = selEnd = null;
+  mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  clearPreview();
+  document.getElementById('editorArea').classList.add('hidden');
+  document.getElementById('dropzone').classList.remove('hidden');
+  document.getElementById('imgSize').textContent = '-';
+  document.getElementById('gridInfo').textContent = '-';
+}
+
+function init() {
+  // Drag & drop
+  const dropzone = document.getElementById('dropzone');
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('dragover');
+  });
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      loadImage(file);
+    }
+  });
+
+  // File input
+  document.getElementById('fileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) loadImage(file);
+  });
+
+  document.getElementById('gridSize').addEventListener('change', e => {
+    gridSize = parseInt(e.target.value);
+    selStart = selEnd = null;
+    updateGridInfo();
+    drawMain();
+    drawOverlay();
+    clearPreview();
+  });
+
+  document.getElementById('zoomRange').addEventListener('input', e => {
+    zoom = parseInt(e.target.value);
+    document.getElementById('zoomDisplay').textContent = `x${zoom}`;
+    drawMain();
+    drawOverlay();
+  });
+
+  const container = document.getElementById('canvasContainer');
+  container.addEventListener('mousemove', handleMouseMove);
+  container.addEventListener('mousedown', handleMouseDown);
+  container.addEventListener('mouseup', handleMouseUp);
+  container.addEventListener('mouseleave', () => {
+    hoverCol = hoverRow = -1;
+    drawOverlay();
+    document.getElementById('hoverPos').textContent = '-';
+  });
+}
+
+function updateGridInfo() {
+  if (!img.width) return;
+  const cols = Math.floor(img.width / gridSize);
+  const rows = Math.floor(img.height / gridSize);
+  document.getElementById('gridInfo').textContent = `${cols}列 × ${rows}行`;
+}
+
+function drawMain() {
+  if (!img.width) return;
+  const w = img.width * zoom;
+  const h = img.height * zoom;
+  mainCanvas.width = w;
+  mainCanvas.height = h;
+  overlayCanvas.width = w;
+  overlayCanvas.height = h;
+  mainCtx.imageSmoothingEnabled = false;
+  mainCtx.drawImage(img, 0, 0, w, h);
+
+  // Draw grid
+  mainCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+  mainCtx.lineWidth = 1;
+  const gs = gridSize * zoom;
+  for (let x = 0; x <= w; x += gs) {
+    mainCtx.beginPath();
+    mainCtx.moveTo(x + 0.5, 0);
+    mainCtx.lineTo(x + 0.5, h);
+    mainCtx.stroke();
+  }
+  for (let y = 0; y <= h; y += gs) {
+    mainCtx.beginPath();
+    mainCtx.moveTo(0, y + 0.5);
+    mainCtx.lineTo(w, y + 0.5);
+    mainCtx.stroke();
+  }
+}
+
+function drawOverlay() {
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  const gs = gridSize * zoom;
+
+  // Hover highlight
+  if (hoverCol >= 0 && hoverRow >= 0) {
+    overlayCtx.fillStyle = 'rgba(127, 219, 202, 0.2)';
+    overlayCtx.fillRect(hoverCol * gs, hoverRow * gs, gs, gs);
+    overlayCtx.strokeStyle = 'rgba(127, 219, 202, 0.7)';
+    overlayCtx.lineWidth = 2;
+    overlayCtx.strokeRect(hoverCol * gs, hoverRow * gs, gs, gs);
+  }
+
+  // Selection
+  if (selStart && selEnd) {
+    const x1 = Math.min(selStart.col, selEnd.col);
+    const y1 = Math.min(selStart.row, selEnd.row);
+    const x2 = Math.max(selStart.col, selEnd.col);
+    const y2 = Math.max(selStart.row, selEnd.row);
+    const sx = x1 * gs;
+    const sy = y1 * gs;
+    const sw = (x2 - x1 + 1) * gs;
+    const sh = (y2 - y1 + 1) * gs;
+
+    overlayCtx.fillStyle = 'rgba(233, 69, 96, 0.15)';
+    overlayCtx.fillRect(sx, sy, sw, sh);
+    overlayCtx.strokeStyle = '#e94560';
+    overlayCtx.lineWidth = 2;
+    overlayCtx.setLineDash([6, 3]);
+    overlayCtx.strokeRect(sx, sy, sw, sh);
+    overlayCtx.setLineDash([]);
+  }
+}
+
+function getGridPos(e) {
+  const rect = mainCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const gs = gridSize * zoom;
+  return {
+    col: Math.floor(x / gs),
+    row: Math.floor(y / gs)
+  };
+}
+
+function handleMouseMove(e) {
+  const pos = getGridPos(e);
+  hoverCol = pos.col;
+  hoverRow = pos.row;
+  document.getElementById('hoverPos').textContent = `(${pos.col}, ${pos.row})`;
+
+  if (isDragging && mode === 'area') {
+    selEnd = { col: pos.col, row: pos.row };
+    updateSelectionInfo();
+  }
+  drawOverlay();
+}
+
+function handleMouseDown(e) {
+  const pos = getGridPos(e);
+  if (mode === 'single') {
+    selStart = { col: pos.col, row: pos.row };
+    selEnd = { col: pos.col, row: pos.row };
+    updateSelectionInfo();
+    updatePreview();
+    drawOverlay();
+  } else {
+    isDragging = true;
+    selStart = { col: pos.col, row: pos.row };
+    selEnd = { col: pos.col, row: pos.row };
+  }
+}
+
+function handleMouseUp(e) {
+  if (isDragging && mode === 'area') {
+    isDragging = false;
+    const pos = getGridPos(e);
+    selEnd = { col: pos.col, row: pos.row };
+    updateSelectionInfo();
+    updatePreview();
+    drawOverlay();
+  }
+}
+
+function updateSelectionInfo() {
+  if (!selStart || !selEnd) return;
+  const x1 = Math.min(selStart.col, selEnd.col);
+  const y1 = Math.min(selStart.row, selEnd.row);
+  const x2 = Math.max(selStart.col, selEnd.col);
+  const y2 = Math.max(selStart.row, selEnd.row);
+  const pw = (x2 - x1 + 1) * gridSize;
+  const ph = (y2 - y1 + 1) * gridSize;
+
+  document.getElementById('selRange').textContent = `(${x1},${y1})-(${x2},${y2})`;
+  document.getElementById('pixelPos').textContent = `(${x1*gridSize}, ${y1*gridSize})`;
+  document.getElementById('cropSize').textContent = `${pw}×${ph}px`;
+
+  const codeEl = document.getElementById('selectionCode');
+  codeEl.style.display = 'block';
+  codeEl.textContent = `# Python (Pillow)\ncrop = img.crop((${x1*gridSize}, ${y1*gridSize}, ${x1*gridSize+pw}, ${y1*gridSize+ph}))`;
+
+  document.getElementById('downloadBtn').disabled = false;
+  document.getElementById('selBatchBtn').disabled = false;
+  document.getElementById('filenameArea').style.display = 'block';
+  document.getElementById('filenameInput').value = `tile_${x1}_${y1}_${pw}x${ph}`;
+}
+
+function updatePreview() {
+  if (!selStart || !selEnd) return;
+  const x1 = Math.min(selStart.col, selEnd.col) * gridSize;
+  const y1 = Math.min(selStart.row, selEnd.row) * gridSize;
+  const x2 = (Math.max(selStart.col, selEnd.col) + 1) * gridSize;
+  const y2 = (Math.max(selStart.row, selEnd.row) + 1) * gridSize;
+  const sw = x2 - x1;
+  const sh = y2 - y1;
+
+  const maxDim = 128;
+  const scale = Math.min(maxDim / sw, maxDim / sh);
+  const dw = Math.floor(sw * Math.max(scale, 1));
+  const dh = Math.floor(sh * Math.max(scale, 1));
+  previewCanvas.width = dw;
+  previewCanvas.height = dh;
+  previewCtx.imageSmoothingEnabled = false;
+  previewCtx.drawImage(img, x1, y1, sw, sh, 0, 0, dw, dh);
+}
+
+function clearPreview() {
+  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  document.getElementById('selRange').textContent = '-';
+  document.getElementById('pixelPos').textContent = '-';
+  document.getElementById('cropSize').textContent = '-';
+  document.getElementById('selectionCode').style.display = 'none';
+  document.getElementById('filenameArea').style.display = 'none';
+  document.getElementById('downloadBtn').disabled = true;
+  document.getElementById('selBatchBtn').disabled = true;
+  document.getElementById('selBatchProgress').style.display = 'none';
+}
+
+function downloadTile() {
+  if (!selStart || !selEnd) return;
+  const x1 = Math.min(selStart.col, selEnd.col) * gridSize;
+  const y1 = Math.min(selStart.row, selEnd.row) * gridSize;
+  const x2 = (Math.max(selStart.col, selEnd.col) + 1) * gridSize;
+  const y2 = (Math.max(selStart.row, selEnd.row) + 1) * gridSize;
+
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = x2 - x1;
+  tempCanvas.height = y2 - y1;
+  const tctx = tempCanvas.getContext('2d');
+  tctx.drawImage(img, x1, y1, x2-x1, y2-y1, 0, 0, x2-x1, y2-y1);
+
+  const filename = document.getElementById('filenameInput').value.trim() || 'tile';
+  const a = document.createElement('a');
+  a.download = `${filename}.png`;
+  a.href = tempCanvas.toDataURL('image/png');
+  a.click();
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('modeSingle').classList.toggle('active', m === 'single');
+  document.getElementById('modeArea').classList.toggle('active', m === 'area');
+  selStart = selEnd = null;
+  clearPreview();
+  drawOverlay();
+}
+
+function isTileEmpty(x, y, w, h) {
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = w;
+  tempCanvas.height = h;
+  const tctx = tempCanvas.getContext('2d');
+  tctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+  const data = tctx.getImageData(0, 0, w, h).data;
+  let totalBrightness = 0;
+  let totalAlpha = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    totalBrightness += data[i] + data[i+1] + data[i+2];
+    totalAlpha += data[i+3];
+  }
+  const pixels = w * h;
+  return (totalAlpha / pixels < 10) || (totalBrightness / pixels < 15);
+}
+
+async function batchExport() {
+  if (!img.width) return;
+
+  const prefix = document.getElementById('batchPrefix').value.trim() || 'tile';
+  const naming = document.getElementById('batchNaming').value;
+  const skipEmpty = document.getElementById('batchSkipEmpty').value === 'yes';
+
+  const cols = Math.floor(img.width / gridSize);
+  const rows = Math.floor(img.height / gridSize);
+  const total = cols * rows;
+
+  const progressEl = document.getElementById('batchProgress');
+  const statusEl = document.getElementById('batchStatus');
+  const barEl = document.getElementById('batchBar');
+  const btn = document.getElementById('batchBtn');
+
+  progressEl.style.display = 'block';
+  btn.disabled = true;
+  btn.textContent = '処理中...';
+
+  const zip = new JSZip();
+  let count = 0;
+  let serial = 0;
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const x = col * gridSize;
+      const y = row * gridSize;
+
+      if (skipEmpty && isTileEmpty(x, y, gridSize, gridSize)) {
+        count++;
+        continue;
+      }
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = gridSize;
+      tempCanvas.height = gridSize;
+      const tctx = tempCanvas.getContext('2d');
+      tctx.drawImage(img, x, y, gridSize, gridSize, 0, 0, gridSize, gridSize);
+
+      let filename;
+      if (naming === 'serial') {
+        filename = `${prefix}_${String(serial).padStart(3, '0')}.png`;
+      } else {
+        filename = `${prefix}_${row}_${col}.png`;
+      }
+      serial++;
+
+      const dataUrl = tempCanvas.toDataURL('image/png');
+      const base64 = dataUrl.split(',')[1];
+      zip.file(filename, base64, { base64: true });
+
+      count++;
+      const pct = Math.round((count / total) * 100);
+      barEl.style.width = pct + '%';
+      statusEl.textContent = `${count} / ${total} タイル処理中... (${serial}枚保存)`;
+
+      if (count % 50 === 0) {
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+  }
+
+  statusEl.textContent = `ZIP生成中... (${serial}枚)`;
+  barEl.style.width = '100%';
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${prefix}_tiles.zip`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  statusEl.textContent = `完了！ ${serial}枚のタイルをZIPで保存しました`;
+  btn.disabled = false;
+  btn.textContent = 'ZIPで一括保存';
+}
+
+async function selectionBatchExport() {
+  if (!img.width || !selStart || !selEnd) return;
+
+  const prefix = document.getElementById('filenameInput').value.trim() || 'sel_tile';
+  const skipEmpty = document.getElementById('batchSkipEmpty').value === 'yes';
+
+  const c1 = Math.min(selStart.col, selEnd.col);
+  const r1 = Math.min(selStart.row, selEnd.row);
+  const c2 = Math.max(selStart.col, selEnd.col);
+  const r2 = Math.max(selStart.row, selEnd.row);
+  const selCols = c2 - c1 + 1;
+  const selRows = r2 - r1 + 1;
+  const total = selCols * selRows;
+
+  const progressEl = document.getElementById('selBatchProgress');
+  const statusEl = document.getElementById('selBatchStatus');
+  const barEl = document.getElementById('selBatchBar');
+  const btn = document.getElementById('selBatchBtn');
+
+  progressEl.style.display = 'block';
+  btn.disabled = true;
+  btn.textContent = '処理中...';
+
+  const zip = new JSZip();
+  let count = 0;
+  let serial = 0;
+
+  for (let row = r1; row <= r2; row++) {
+    for (let col = c1; col <= c2; col++) {
+      const x = col * gridSize;
+      const y = row * gridSize;
+
+      if (skipEmpty && isTileEmpty(x, y, gridSize, gridSize)) {
+        count++;
+        continue;
+      }
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = gridSize;
+      tempCanvas.height = gridSize;
+      const tctx = tempCanvas.getContext('2d');
+      tctx.drawImage(img, x, y, gridSize, gridSize, 0, 0, gridSize, gridSize);
+
+      const localRow = row - r1;
+      const localCol = col - c1;
+      const filename = `${prefix}_${localRow}_${localCol}.png`;
+      serial++;
+
+      const dataUrl = tempCanvas.toDataURL('image/png');
+      const base64 = dataUrl.split(',')[1];
+      zip.file(filename, base64, { base64: true });
+
+      count++;
+      const pct = Math.round((count / total) * 100);
+      barEl.style.width = pct + '%';
+      statusEl.textContent = `${count} / ${total} タイル処理中... (${serial}枚保存)`;
+
+      if (count % 50 === 0) {
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+  }
+
+  statusEl.textContent = `ZIP生成中... (${serial}枚)`;
+  barEl.style.width = '100%';
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${prefix}_selection.zip`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+
+  statusEl.textContent = `完了！ ${serial}枚のタイルを保存しました (${selCols}×${selRows}マス)`;
+  btn.disabled = false;
+  btn.textContent = '選択範囲を一括切り出し';
+}
+
+init();
+</script>
+</body>
+</html>

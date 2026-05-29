@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); fp=d.get('file_path',''); old=d.get('old_string',''); new=d.get('new_string',''); removed=len(old)-len(new); sys.exit(1) if any(x in fp for x in ['index.html','style.css']) and removed > 2000 else sys.exit(0)\"",
+            "blockOnFailure": true
+          }
+        ]
+      }
+    ]
+  }
+}
