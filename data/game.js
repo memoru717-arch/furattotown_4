@@ -105,6 +105,9 @@ const gameState = {
     actionCount: 0,
     lastDiseaseCheckDate: null, // 最後に病気チェックした日付（YYYY-MM-DD）
     lastDiseaseOccurredDate: null, // 最後に病気になった日付（重複防止用）
+    lastWorkCountDate: null, // 出勤カウントをリセットした日付（当日分のみ管理）
+    lastGikkuriCheckDate: null, // ぎっくり腰チェックを実行した日付（1日1回制限）
+    lastInterestDate: null, // 預金利息を付与した日付（1日1回）
     // マイホームショップ仕入れ在庫
     shopStock: [],
     // 問屋の残り在庫（アイテム名: 残数）
@@ -374,13 +377,15 @@ function renderMap() {
                 if (rawId && rawId.startsWith('house/')) placeId = 'myhouse';
                 tileForInfo = iconName;
 
-                if (bgName || iconName) {
-                    let html = '<div class="tile-wrap">';
-                    if (bgName) html += `<img src="mapimg/${bgName}.png" class="tile-img tile-bg" alt="${bgName}">`;
-                    if (iconName) html += `<img src="mapimg/${iconName}.png" class="tile-img tile-icon" alt="${iconName}">`;
-                    html += '</div>';
-                    cell.innerHTML = html;
-                } else {
+                // bg は Safari でも確実に描画されるよう td の background-image に設定
+                if (bgName) {
+                    cell.style.backgroundImage = `url('mapimg/${bgName}.png')`;
+                    cell.style.backgroundSize = 'cover';
+                    cell.style.backgroundPosition = 'center';
+                }
+                if (iconName) {
+                    cell.innerHTML = `<img src="mapimg/${iconName}.png" class="tile-img tile-icon" alt="${iconName}">`;
+                } else if (!bgName) {
                     const place = places[placeId];
                     cell.innerHTML = `<span class="emoji">${place ? place.emoji : ''}</span>`;
                 }
@@ -1301,10 +1306,12 @@ function checkTreeCoin(y, x) {
     initDailyCoin();
     const coin = gameState.coinTree;
     if (!coin.collected && coin.y === y && coin.x === x) {
-        const msg = coin.amount === 10000
-            ? `超ラッキー！！${coin.amount.toLocaleString()}円を見つけた！！`
-            : `ラッキー！${coin.amount.toLocaleString()}円を見つけた！`;
-        document.getElementById('treeCoinMessage').textContent = msg;
+        const el = document.getElementById('treeCoinMessage');
+        if (coin.amount >= 5000) {
+            el.innerHTML = `超ラッキー！！<br>${coin.amount.toLocaleString()}円を見つけた！！`;
+        } else {
+            el.textContent = `ラッキー！${coin.amount.toLocaleString()}円を見つけた！`;
+        }
         changeMoney(coin.amount);
         coin.collected = true;
         document.getElementById('treeCoinModal').classList.add('active');

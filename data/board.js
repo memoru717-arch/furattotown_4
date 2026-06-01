@@ -542,19 +542,16 @@ function renderAnswers(postId) {
 
         let repliesHtml = '';
         if (answer.replies && answer.replies.length > 0) {
-            // 直接返信ごとにネスト返信をグループ化
+            // 直接返信ごとにネスト返信をグループ化（最大2段階）
             const replyGroups = [];
             answer.replies.forEach((reply, index) => {
-                const isNested = reply.replyTo && reply.replyTo !== answer.authorName;
+                const isNested = reply.replyToIndex !== undefined && reply.replyToIndex !== null;
                 if (!isNested || replyGroups.length === 0) {
                     replyGroups.push({ main: { reply, index }, nested: [] });
                 } else {
-                    // replyToIndexがあればそのインデックスのグループへ、なければ名前で最後のグループを検索
                     let targetGroup = null;
                     if (reply.replyToIndex !== undefined && reply.replyToIndex !== null) {
-                        // direct返信のグループを検索
                         targetGroup = replyGroups.find(g => g.main.index === reply.replyToIndex);
-                        // nested返信へのさらなる返信の場合、そのnestedが属するグループを検索
                         if (!targetGroup) {
                             targetGroup = replyGroups.find(g => g.nested.some(n => n.index === reply.replyToIndex));
                         }

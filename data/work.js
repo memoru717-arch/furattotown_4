@@ -118,6 +118,14 @@ function openWorkModal() {
         // 最終出勤時刻を記録
         p.lastWorkTime = Date.now();
 
+        // 日付が変わっていたら出勤カウントをリセット（当日分のみでぎっくり腰判定）
+        const _wNow = new Date();
+        const _wToday = `${_wNow.getFullYear()}-${String(_wNow.getMonth() + 1).padStart(2, '0')}-${String(_wNow.getDate()).padStart(2, '0')}`;
+        if (gameState.lastWorkCountDate !== _wToday) {
+            gameState.lastWorkCountDate = _wToday;
+            p.workCount = 0;
+        }
+
         // 出勤回数をカウント（病気判定用）
         p.workCount++;
 

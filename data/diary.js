@@ -12,6 +12,15 @@ let diaryBubbleAvatarR = null; // 右吹き出し用アイコン（base64）
 let _diarySelChangeHandler = null; // selectionchange リスナー参照（解除用）
 let _diaryCurFontSize = 16;       // 現在アクティブなフォントサイズ（ブロック単位）
 
+/* ─── 日時フォーマット ─────────────── */
+
+function formatDiaryDate(timestamp, withTime = false) {
+    const d = new Date(timestamp);
+    const date = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+    if (!withTime) return date;
+    return `${date} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
 /* ─── 下書きヘルパー（複数対応） ─────────────── */
 function _getDiaryDrafts() {
     const diary = gameState.player.house?.diary;
@@ -478,183 +487,11 @@ function diaryToggleMarker() {
     updateDiaryCount();
 }
 
-function diaryInsertBlockHtml(html) {
-    document.execCommand('insertHTML', false, html);
-    updateDiaryCount();
-}
-
-/* ─── フォントサイズ（ブロック単位） ──────────── */
-
-// サイズボタンのアクティブ状態を更新
-function _updateDiarySizeBtns() {
-    document.querySelectorAll('.diary-sb-size2-btn').forEach(btn => {
-        btn.classList.toggle('active', Number(btn.dataset.size) === _diaryCurFontSize);
-    });
-}
-
 // container直属のテキストノードをdivで包む
 function _diaryWrapTextNode(container, textNode) {
     const div = document.createElement('div');
     container.insertBefore(div, textNode);
     div.appendChild(textNode);
-    return div;
-}
-
-// ノードからcontainer直属のブロックdivを取得
-// isEditorRoot=true のときはバブル・カラーボックスを除外する
-function _getEditorBlock(container, node, isEditorRoot) {
-    let n = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-
-    // n がcontainer自身 = 空のcontainer or 1行目の生テキストノード
-    if (n === container) {
-        if (!isEditorRoot) return container;  // カラーボックスinnerは自身に適用
-        // エディタルート + テキストノード直属 → divで包む
-        if (node.nodeType === Node.TEXT_NODE && node.parentNode === container) {
-            return _diaryWrapTextNode(container, node);
-        }
-        return null;
-    }
-
-    while (n && n.parentElement !== container) {
-        n = n.parentElement;
-    }
-    if (!n || n === container) {
-        return null;
-    }
-    // エディタルートのみ：バブル・カラーボックスは対象外
-    if (isEditorRoot && (
-        n.classList.contains('diary-bubble-l') ||
-        n.classList.contains('diary-bubble-r') ||
-        n.classList.contains('diary-colorbox'))) {
-        return null;
-    }
-    return n;
-}
-
-// 選択範囲内にあるcontainer直属のブロックdivをすべて返す
-function _getDiarySelectedBlocks(container, range, isEditorRoot) {
-    const startBlock = _getEditorBlock(container, range.startContainer, isEditorRoot);
-    if (!startBlock) return [];
-    if (range.collapsed) return [startBlock];
-
-    const endBlock = _getEditorBlock(container, range.endContainer, isEditorRoot);
-    if (!endBlock || startBlock === endBlock) return [startBlock];
-
-    // startBlock〜endBlock 間のDIVを収集
-    const result = [];
-    let collecting = false;
-    for (const child of Array.from(container.childNodes)) {
-        if (child === startBlock) collecting = true;
-        if (collecting &&
-            child.nodeType === Node.ELEMENT_NODE &&
-            child.tagName === 'DIV' &&
-            (!isEditorRoot || (
-                !child.classList.contains('diary-bubble-l') &&
-                !child.classList.contains('diary-bubble-r') &&
-                !child.classList.contains('diary-colorbox')
-            ))) {
-            result.push(child);
-        }
-        if (child === endBlock) break;
-    }
-    return result.length ? result : [startBlock];
-}
-
-// 空エディタ用：フォントサイズ付き初期ブロックを挿入してカーソルを移動
-function _diaryInsertInitialBlock(editor, px) {
-    const div = document.createElement('div');
-    _applyDiaryTextSize(div, px);
-    editor.insertBefore(div, editor.firstChild);
-    const r = document.createRange();
-    r.setStart(div, 0);
-    r.collapse(true);
-    const s = window.getSelection();
-    s.removeAllRanges();
-    s.addRange(r);
-    editor.focus();
-}
-
-// フォントサイズをブロック単位で適用
-function diarySetFontSize(px) {
-    const editor = document.getElementById('diaryEditor');
-    if (!editor) return;
-
-    _diaryCurFontSize = px;
-    _updateDiarySizeBtns();
-
-    const sel = window.getSelection();
-
-    // エディタ内の通常ブロックdiv（吹き出し・カラーボックス以外）を取得するヘルパー
-    function _getEditorBlockDivs() {
-        return Array.from(editor.childNodes).filter(c =>
-            c.nodeType === Node.ELEMENT_NODE && c.tagName === 'DIV' &&
-            !c.classList.contains('diary-bubble-l') &&
-            !c.classList.contains('diary-bubble-r') &&
-            !c.classList.contains('diary-colorbox')
-        );
-    }
-
-    // selectionがない場合: 既存ブロックがあればそちらに適用、なければ初期ブロック挿入
-    if (!sel || !sel.rangeCount) {
-        const divs = _getEditorBlockDivs();
-        if (divs.length > 0) {
-            _applyDiaryTextSize(divs[divs.length - 1], px);
-        } else if (editor === document.activeElement || editor.contains(document.activeElement)) {
-            _diaryInsertInitialBlock(editor, px);
-        }
-        updateDiaryCount();
-        return;
-    }
-
-    const range = sel.getRangeAt(0);
-
-    // カーソルがカラーボックス内にあるか確認
-    const colorboxInner = _getDiaryColorboxInner(range.startContainer, editor);
-
-    // カラーボックス内はinnerを、通常はeditorをコンテナとして使う
-    const container = colorboxInner || editor;
-    const isEditorRoot = !colorboxInner;
-    const blocks = _getDiarySelectedBlocks(container, range, isEditorRoot);
-
-    if (blocks.length === 0 && !colorboxInner) {
-        // カーソルがエディタ要素自身にある場合：既存ブロックがあればそこに適用
-        const divs = _getEditorBlockDivs();
-        if (divs.length > 0) {
-            _applyDiaryTextSize(divs[0], px);
-        } else {
-            // エディタが本当に空のときだけ初期ブロックを挿入
-            _diaryInsertInitialBlock(editor, px);
-        }
-        updateDiaryCount();
-        return;
-    }
-
-    blocks.forEach(block => {
-        _applyDiaryTextSize(block, px);
-    });
-    (colorboxInner || editor).focus();
-    updateDiaryCount();
-}
-
-/* ─── フォントサイズ v2（再設計版） ─────────────── */
-
-// エディタ直下に通常ブロックDIVがなければ作って返す（あればnullを返す）
-function _ensureEditorHasBlock(editor) {
-    const hasBlock = Array.from(editor.childNodes).some(n =>
-        n.nodeType === 1 && n.tagName === 'DIV' &&
-        !n.classList.contains('diary-bubble-l') &&
-        !n.classList.contains('diary-bubble-r') &&
-        !n.classList.contains('diary-colorbox')
-    );
-    if (hasBlock) return null;
-    const div = document.createElement('div');
-    const firstBr = (editor.firstChild && editor.firstChild.nodeName === 'BR') ? editor.firstChild : null;
-    if (firstBr) {
-        editor.insertBefore(div, firstBr);
-        firstBr.remove();
-    } else {
-        editor.insertBefore(div, editor.firstChild);
-    }
     return div;
 }
 
@@ -1294,7 +1131,7 @@ function openDiaryPreview() {
     const title = escapeHtml((titleInput ? titleInput.value : '') || '');
 
     const now = new Date();
-    const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const dateStr = formatDiaryDate(now.getTime(), true);
     const tagsHtml = (diaryCurrentTags && diaryCurrentTags.length > 0)
         ? `<div class="diary-post-modal-tags">${diaryCurrentTags.map(t => `<span class="diary-post-tag">#${escapeHtml(t)}</span>`).join('')}</div>`
         : '';
@@ -1370,12 +1207,11 @@ function buildDiaryPostsHtml(posts) {
         return b.timestamp - a.timestamp;
     });
     return sorted.map(post => {
-        const d = new Date(post.timestamp);
-        const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+        const dateStr = formatDiaryDate(post.timestamp);
         const title = escapeHtml(post.title || '');
         // 最初の画像を抽出
         const tmp = document.createElement('div');
-        tmp.innerHTML = post.html || '';
+        tmp.innerHTML = post.html || ''; // 自分のエディタが生成したHTMLのみ。マルチプレイ時はDOMPurify等でサニタイズ必要
         const firstImg = tmp.querySelector('img:not(.diary-bubble-avatar)');
         const thumbSrc = firstImg ? firstImg.src : null;
         // テキストプレビュー（60文字）
@@ -1384,7 +1220,7 @@ function buildDiaryPostsHtml(posts) {
         const hasMore = plainText.length > 40;
         const pinIcon = post.pinned ? '<img src="house/icon/pin.svg" class="diary-card-pin-inline" alt="pin">' : '';
         return `
-            <div class="diary-card${post.pinned ? ' diary-card--pinned' : ''}" onclick="openDiaryPostModal('${post.id}')">
+            <div class="diary-card${post.pinned ? ' diary-card--pinned' : ''}" onclick="openDiaryPostModal('${escapeHtml(post.id)}')">
                 <div class="diary-card-thumb">
                     ${thumbSrc ? `<img src="${thumbSrc}" alt="">` : '<div class="diary-card-noimage"></div>'}
                 </div>
@@ -1406,8 +1242,8 @@ function openDiaryPostModal(id) {
     const post = posts.find(p => p.id === id);
     if (!post) return;
 
-    const d = new Date(post.timestamp);
-    const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const dateStr = formatDiaryDate(post.timestamp, true);
+    // post.html は自分のエディタが生成したHTMLのみ。マルチプレイ時はDOMPurify等でサニタイズ必要
     const content = post.html
         ? `<div class="diary-post-modal-content diary-content">${post.html}</div>`
         : `<div class="diary-post-modal-content">${escapeHtml(post.text || '').replace(/\n/g, '<br>')}</div>`;
@@ -1438,9 +1274,9 @@ function openDiaryPostModal(id) {
                 <div class="diary-post-modal-datebar">
                     <p class="diary-post-modal-date">${dateStr}</p>
                     <div class="diary-post-modal-actions">
-                        <button class="myhouse-diary-post-pin${post.pinned ? ' is-pinned' : ''}" onclick="toggleDiaryPin('${post.id}')"><img src="house/icon/pin.svg" class="diary-pin-icon" alt="">${post.pinned ? 'ピン解除' : 'ピン留め'}</button>
-                        <button class="myhouse-diary-post-edit" onclick="closeDiaryPostModal();editDiaryPost('${post.id}')">編集</button>
-                        <button class="myhouse-diary-post-del" onclick="confirmDeleteDiaryPost('${post.id}')">削除</button>
+                        <button class="myhouse-diary-post-pin${post.pinned ? ' is-pinned' : ''}" onclick="toggleDiaryPin('${escapeHtml(post.id)}')"><img src="house/icon/pin.svg" class="diary-pin-icon" alt="">${post.pinned ? 'ピン解除' : 'ピン留め'}</button>
+                        <button class="myhouse-diary-post-edit" onclick="closeDiaryPostModal();editDiaryPost('${escapeHtml(post.id)}')">編集</button>
+                        <button class="myhouse-diary-post-del" onclick="confirmDeleteDiaryPost('${escapeHtml(post.id)}')">削除</button>
                     </div>
                 </div>
                 <h2 class="diary-post-modal-title">${escapeHtml(post.title || '')}</h2>
@@ -2242,7 +2078,7 @@ function confirmDeleteDiaryPost(id) {
                 <p class="diary-confirm-text">この投稿を削除しますか？</p>
                 <p class="diary-confirm-sub">削除した投稿は元に戻せません。</p>
                 <div class="diary-confirm-btns">
-                    <button class="diary-confirm-delete" onclick="closeDiaryDeleteConfirm();closeDiaryPostModal();deleteDiaryPost('${id}')">削除する</button>
+                    <button class="diary-confirm-delete" onclick="closeDiaryDeleteConfirm();closeDiaryPostModal();deleteDiaryPost('${escapeHtml(id)}')">削除する</button>
                     <button class="diary-confirm-cancel" onclick="closeDiaryDeleteConfirm()">キャンセル</button>
                 </div>
             </div>

@@ -29,9 +29,9 @@ const randomEvents = [
         effect: () => { gameState.player.abilities.国語 += 3; }
     },
     {
-        text: 'スリに遭いました。持ち金が半分になってしまいました。',
+        text: 'スリに遭いました。5,000円盗まれました。',
         type: 'bad',
-        effect: () => { gameState.player.money = Math.floor(gameState.player.money / 2); }
+        effect: () => { changeMoney(-5000); }
     },
     {
         text: '不思議に優しい気持ちにつつまれました。優しさ度が５アップ！',
@@ -123,8 +123,7 @@ const randomEvents = [
     },
     {
         textFn: () => {
-            const pct = (Math.floor(Math.random() * 5) + 1) * 10;
-            gameState._stolenAmount = Math.floor(gameState.player.money * pct / 100);
+            gameState._stolenAmount = (Math.floor(Math.random() * 5) + 1) * 10000;
             return `泥棒に入られました。${gameState._stolenAmount.toLocaleString()}円盗まれました。`;
         },
         type: 'bad',
@@ -210,32 +209,26 @@ function checkDisease() {
     if (gameState.lastDiseaseCheckDate === today) return null;
     gameState.lastDiseaseCheckDate = today;
 
-    // workCount/mealCountを保存してリセット（病気中でも必ず実行）
-    const workCount = p.workCount;
+    // mealCountを保存してリセット（病気中でも必ず実行）
+    // workCountはwork.jsで日付変更時にリセット、ぎっくり腰判定はtryShowRandomEvent()で当日判定する
     const mealCount = p.mealCount;
-    p.workCount = 0;
     p.mealCount = 0;
 
     // すでに病気なら判定はしない（リセットだけして終了）
     if (p.disease) return null;
 
     const hpRatio = p.health / p.maxHealth;
-    const kiryokuRatio = p.intelligence / p.maxIntelligence;
+    const intelligenceRatio = p.intelligence / p.maxIntelligence;
 
     // 重め（優先度：高）
     if (hpRatio <= 0.2 && Math.random() < 0.15) {
         return { id: 'haien', text: '肺炎にかかってしまいました。' };
     }
-    if (hpRatio <= 0.3 && kiryokuRatio <= 0.3 && Math.random() < 0.15) {
+    if (hpRatio <= 0.3 && intelligenceRatio <= 0.3 && Math.random() < 0.15) {
         return { id: 'kansenshou', text: '感染症にかかってしまいました。' };
     }
-    if (kiryokuRatio <= 0.10 && Math.random() < 0.45) {
+    if (intelligenceRatio <= 0.10 && Math.random() < 0.45) {
         return { id: 'utsubyou', text: 'うつ病になってしまいました。' };
-    }
-
-    // 中くらい（優先度：中）
-    if (workCount >= 8 && Math.random() < 0.45) {
-        return { id: 'gikkurigoshi', text: 'ぎっくり腰になってしまいました。' };
     }
 
     // 軽め（優先度：低）
@@ -252,6 +245,20 @@ function tryShowRandomEvent() {
     // 今日の日付（JST基準）
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // ぎっくり腰チェック（当日の出勤累計8回以上で判定・1日1回）
+    const p = gameState.player;
+    if (!p.disease && p.workCount >= 8 && gameState.lastGikkuriCheckDate !== today) {
+        gameState.lastGikkuriCheckDate = today;
+        if (Math.random() < 0.45) {
+            p.disease = 'gikkurigoshi';
+            gameState.lastDiseaseOccurredDate = today;
+            saveGame(true);
+            updateStatus();
+            showRandomEvent('ぎっくり腰になってしまいました。', 'bad');
+            return;
+        }
+    }
 
     // まず病気チェック（1日1回）
     const diseaseResult = checkDisease();

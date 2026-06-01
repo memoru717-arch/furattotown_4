@@ -123,7 +123,6 @@ function _pbBackdropClick() {
 function _pbShowHome() {
     document.getElementById('profileBoardBackBtn').style.display = 'none';
     document.getElementById('profileBoardTitleText').textContent = '';
-
     _renderPbHome();
 }
 
@@ -300,7 +299,7 @@ function _makePbCard(post) {
     const lastWordText = post.lastWord ? escapeHtml(post.lastWord) : '—';
     const extraHtml = `
         <div class="pb-card-extra">
-            <span class="pb-card-extra-type">最後にひとこと</span>
+            <span class="pb-card-extra-type">みんなにひとこと</span>
             <div class="pb-card-extra-lastword">${lastWordText}</div>
         </div>`;
 
@@ -319,10 +318,6 @@ function _makePbCard(post) {
                             <div class="pb-card-row">
                                 <span class="pb-card-row-label">名前</span>
                                 <span class="pb-card-row-val pb-card-row-val--name">${name}</span>
-                            </div>
-                            <div class="pb-card-row">
-                                <span class="pb-card-row-label">お仕事</span>
-                                <span class="pb-card-row-val">${escapeHtml(post.realJob || '—')}</span>
                             </div>
                             <div class="pb-card-row">
                                 <span class="pb-card-row-label">長所</span>
@@ -362,9 +357,11 @@ function _renderPbDetail() {
 
     const qRows = _PB_Q_DEFS.map(q => {
         const ans = post[q.key] || '';
-        const chips = q.opts.map(opt =>
+        const optSpans = q.opts.map(opt =>
             `<span class="pb-q-chip${opt === ans ? ' pb-q-chip--on' : ''}">${escapeHtml(opt)}</span>`
-        ).join('<span class="pb-q-sep"> ・ </span>');
+        );
+        const sepSpan = `<span class="pb-q-chip pb-q-sep${ans === '・' ? ' pb-q-chip--on' : ''}"> ・ </span>`;
+        const chips = optSpans[0] + sepSpan + optSpans[1];
         return `
             <div class="pb-detail-q-row">
                 <span class="pb-q-prefix">${q.prefix}</span>
@@ -455,7 +452,7 @@ function _renderPbDetail() {
             </div>
 
             <div class="pb-detail-section">
-                <h4 class="pb-detail-section-title">最後にひとこと！</h4>
+                <h4 class="pb-detail-section-title">みんなにひとこと！</h4>
                 <p class="pb-detail-lastword">${post.lastWord ? escapeHtml(post.lastWord) : '—'}</p>
             </div>
         </div>
@@ -488,9 +485,12 @@ function _renderPbEditor() {
     `).join('');
 
     const qHtml = _PB_Q_DEFS.map(q => {
-        const chips = q.opts.map(opt =>
-            `<span class="pb-q-chip pb-q-chip--btn${post[q.key] === opt ? ' pb-q-chip--on' : ''}" onclick="_pbToggleChip(this,'${q.key}')" data-val="${escapeAttr(opt)}">${escapeHtml(opt)}</span>`
-        ).join('<span class="pb-q-sep"> ・ </span>');
+        const val = post[q.key] || '';
+        const optSpans = q.opts.map(opt =>
+            `<span class="pb-q-chip pb-q-chip--btn${val === opt ? ' pb-q-chip--on' : ''}" onclick="_pbToggleChip(this,'${q.key}')" data-val="${escapeAttr(opt)}">${escapeHtml(opt)}</span>`
+        );
+        const sepChip = `<span class="pb-q-chip pb-q-chip--btn pb-q-sep${val === '・' ? ' pb-q-chip--on' : ''}" onclick="_pbToggleChip(this,'${q.key}')" data-val="・"> ・ </span>`;
+        const chips = optSpans[0] + sepChip + optSpans[1];
         return `
             <div class="pb-detail-q-row">
                 <span class="pb-q-prefix">${q.prefix}</span>
@@ -513,6 +513,8 @@ function _renderPbEditor() {
     const pronoun = escapeHtml(post.pronoun || 'わたし');
 
     document.getElementById('profileBoardBody').innerHTML = `
+        <div class="pb-editor-outer">
+        <p class="pb-editor-intro">項目は、書けるところのみでOK！いつでも修正＆更新ができます。<br>あなたのプロフィールをきっかけに、フレンドができるかも⋯！？</p>
         <div class="pb-detail pb-detail--editor" style="--pb-accent:${headerBg};--pb-accent-dark:${accentDark};--pb-modal-bg:${headerBg};--pb-fill-bg:${fillBg}">
             <div class="pb-editor-preview-bar" style="background:repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(255,255,255,0.3) 6px,rgba(255,255,255,0.3) 9px),${headerBg}">MY PROFILE</div>
             <div class="pb-editor-content">
@@ -556,7 +558,7 @@ function _renderPbEditor() {
                                 <span class="pb-card-row-label">長所</span>
                                 <select id="pbAppeal" class="pb-edit-val-select">
                                     <option value="">—</option>
-                                    ${['顔がいい','頭がいい','スタイル抜群','明るい','穏やか','素直','努力家','トークが得意','聞き上手','誠実','お金持ち','手先が器用','心意気','食いしん坊','ボンキュッボン','家庭的','スポーツ得意','歌がうまい','鋼メンタル','推しに全力','料理上手','どこでも眠れる','えっち','ダメ人間'].map(v =>
+                                    ${['顔がいい','頭がいい','スタイル抜群','明るい','穏やか','素直','努力家','トークが得意','聞き上手','誠実','暗算が速い','手先が器用','心意気','食いしん坊','ボンキュッボン','家庭的','スポーツ得意','歌がうまい','鋼メンタル','推しに全力','料理上手','どこでも眠れる','えっち','社畜','ダメ人間'].map(v =>
                                         `<option value="${v}"${post.appeal === v ? ' selected' : ''}>${v}</option>`
                                     ).join('')}
                                 </select>
@@ -607,17 +609,28 @@ function _renderPbEditor() {
             </div>
 
             <div class="pb-detail-section">
-                <h4 class="pb-detail-section-title">最後にひとこと！</h4>
+                <h4 class="pb-detail-section-title">みんなにひとこと！</h4>
                 <input type="text" id="pbLastWord" class="pb-edit-lastword-input" maxlength="100" value="${escapeAttr(post.lastWord || '')}">
             </div>
 
-            <div class="pb-editor-actions">
-                <button class="pb-cancel-btn" onclick="_pbShowHome()">キャンセル</button>
-                <button class="pb-save-btn" onclick="_savePbPost()">保存する</button>
-            </div>
             </div>
         </div>
+        <div class="pb-editor-actions">
+            <button class="pb-clear-btn" onclick="_pbClearEditor()">リセットする</button>
+            <button class="pb-cancel-btn" onclick="_pbShowHome()">キャンセル</button>
+            <button class="pb-save-btn" onclick="_savePbPost()">保存する</button>
+        </div>
+        </div>
     `;
+}
+
+function _pbClearEditor() {
+    document.querySelectorAll('.pb-editor-content input, .pb-editor-content select').forEach(el => {
+        if (el.tagName === 'SELECT') el.selectedIndex = 0;
+        else el.value = '';
+    });
+    document.querySelectorAll('.pb-q-chip--btn').forEach(el => el.classList.remove('pb-q-chip--on'));
+    Object.keys(_pbEditorQAnswers).forEach(k => { _pbEditorQAnswers[k] = ''; });
 }
 
 function _pbToggleChip(el, key) {

@@ -1,7 +1,21 @@
 // ============================================
 // 銀行
 // ============================================
+function applyDailyInterest() {
+    if (gameState.savings <= 0) return;
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (gameState.lastInterestDate === today) return;
+    gameState.lastInterestDate = today;
+    const interest = Math.floor(gameState.savings * 0.003);
+    if (interest <= 0) return;
+    gameState.savings += interest;
+    addBankHistory('deposit', interest, '利息（0.3%）');
+    saveGame(true);
+}
+
 function openBankModal() {
+    applyDailyInterest();
     const mc = document.querySelector('#bankModal .bank-modal-content');
     mc.classList.add('bank-lobby-mode');
 

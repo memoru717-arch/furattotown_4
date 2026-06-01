@@ -546,7 +546,6 @@ section h2 {
     border: 2px solid #EAAD77;
     flex: 1;
     table-layout: fixed;
-    aspect-ratio: 16 / 12;
 }
 
 .town-map td {
@@ -591,28 +590,11 @@ section h2 {
     object-fit: cover;
 }
 
-/* 2レイヤー対応（bg + icon 重ね表示） */
-.town-map td .tile-wrap {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-}
-.town-map td .tile-bg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 0;
-}
+/* アイコン画像（bg は td の background-image として設定） */
 .town-map td .tile-icon {
-    position: absolute;
-    inset: 0;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 1;
+    height: auto;
+    display: block;
 }
 
 .town-map td .tile-icon[alt="sale"] {
@@ -6265,7 +6247,7 @@ table.shop-table.gym-table .target-job-stats {
     border-bottom: none;
     border-radius: 10px 10px 0 0;
     position: relative;
-    top: 4px;
+    top: 6px;
     background: #faf4ef;
     color: #333;
     font-size: 16px;
@@ -17494,7 +17476,7 @@ p.shokudo-select-name {
 
 .pb-card-avatar {
     aspect-ratio: 1 / 1;
-    width: 100%;
+    height: 100%;
     border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.6);
     display: flex;
@@ -17693,7 +17675,7 @@ p.shokudo-select-name {
     border-radius: 6px;
     overflow: hidden;
     width: 72vw;
-    max-width: 710px;
+    max-width: 730px;
     min-width: 360px;
     max-height: 80vh;
     display: flex;
@@ -17853,7 +17835,7 @@ p.shokudo-select-name {
 }
 
 .pb-card-extra-lastword {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: #664118;
     line-height: 1.6;
@@ -17873,6 +17855,20 @@ p.shokudo-select-name {
     gap: 31px;
 }
 
+.pb-editor-outer {
+    max-width: 730px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.pb-editor-intro {
+    color: #fff8f0;
+    font-size: 13px;
+    line-height: 1.7;
+    margin: 0 0 14px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
 .pb-detail--editor {
     gap: 0;
 }
@@ -17883,7 +17879,6 @@ p.shokudo-select-name {
     padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
     background: #fff8f0;
     box-shadow: 3px 4px 0px rgb(0 0 0 / 4%);
 }
@@ -17896,7 +17891,7 @@ p.shokudo-select-name {
 }
 
 .pb-detail-avatar {
-    width: 100%;
+    height: 100%;
     aspect-ratio: 1 / 1;
     border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.6);
@@ -17947,6 +17942,10 @@ p.shokudo-select-name {
     display: flex;
     flex-direction: column;
     gap: 6px;
+}
+
+.pb-detail-fill-sec:has(> *) {
+    padding-top: 16px;
 }
 
 .pb-detail .pb-detail-fill-text {
@@ -18080,7 +18079,7 @@ p.shokudo-select-name {
 }
 
 .pb-detail-qa-q {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: #66411873;
     margin-bottom: 5px;
@@ -18342,8 +18341,28 @@ p.shokudo-select-name {
 .pb-editor-actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     gap: 10px;
-    padding-top: 8px;
+    padding: 16px 0 0;
+}
+
+.pb-clear-btn {
+    margin-right: auto;
+    background: #e05040;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 16px;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 3px #e05040, inset 0 0 0 4px #FFFFFF;
+}
+
+.pb-clear-btn:hover {
+    background: #c03428;
+    box-shadow: inset 0 0 0 3px #c03428, inset 0 0 0 4px #FFFFFF;
 }
 
 .pb-save-btn {
@@ -18352,7 +18371,7 @@ p.shokudo-select-name {
     border-radius: 8px;
     color: #664118;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: bold;
     padding: 10px 28px;
     cursor: pointer;
@@ -18366,28 +18385,28 @@ p.shokudo-select-name {
 }
 
 .pb-cancel-btn {
-    background: #e8dece;
+    background: #664118;
     border: none;
     border-radius: 8px;
-    color: #a08060;
+    color: #ffffff;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: bold;
     padding: 10px 20px;
     cursor: pointer;
-    box-shadow: inset 0 0 0 3px #e8dece, inset 0 0 0 4px #a08060;
+    box-shadow: inset 0 0 0 3px #664118, inset 0 0 0 4px #cdb9a4;
 }
 
 .pb-cancel-btn:hover {
     transform: none;
-    background: #ddd0bc;
-    box-shadow: inset 0 0 0 3px #ddd0bc, inset 0 0 0 4px #a08060;
+    background: #664118;
+    box-shadow: inset 0 0 0 3px #664118, inset 0 0 0 4px #cdb9a4;
 }
 
 /* ---- エディタモード（詳細ビュースタイルに合わせた入力UI） ---- */
 
 .pb-detail--editor {
-    max-width: 710px;
+    max-width: 730px;
     margin: 0 auto;
     padding: 0;
     box-sizing: border-box;
@@ -18547,7 +18566,7 @@ p.shokudo-select-name {
 /* Q&Aカード内の入力 */
 .pb-edit-qa-input {
     display: block;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     color: #664118;
     border: none;
@@ -18569,12 +18588,12 @@ p.shokudo-select-name {
     user-select: none;
     border: 2px solid transparent;
     border-radius: 20px;
-    padding: 2px 10px;
-    transition: border-color 0.12s, background 0.12s;
+    padding: 2px 4px;
 }
-.pb-q-chip--btn:hover:not(.pb-q-chip--on) {
-    border-color: rgba(200,168,122,0.5);
-    background: rgba(255,255,255,0.4);
+.pb-q-chip--btn.pb-q-chip--on {
+    border-color: var(--pb-accent-dark, #c8a87a);
+    background: #fff8f0;
+    padding: 2px 10px;
 }
 
 /* 最後にひとことの入力 */
