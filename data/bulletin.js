@@ -760,7 +760,7 @@ function deleteBulletinComment(postId, commentId) {
     ensureBulletinState();
     const post = gameState.player.house.bulletin.posts.find(p => p.id === postId);
     if (!post) return;
-    post.comments = post.comments.filter(c => c.id !== commentId);
+    post.comments = post.comments.filter(c => c.id !== commentId && c.parentCommentId !== commentId);
     saveGame(true);
     const replyList = document.getElementById(`bulletinReplyList-${postId}`);
     if (replyList) replyList.innerHTML = buildBulletinReplyListHtml(post, isBulletinOwner());

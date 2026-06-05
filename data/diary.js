@@ -2100,6 +2100,8 @@ function deleteDiaryPost(id) {
 
 function saveDiarySetting() {
     if (!gameState.player.house) return;
+    saveContentTitle(currentContentSettingId);
+    saveContentVisibility();
     if (!gameState.player.house.diary) gameState.player.house.diary = {};
     const checked = document.querySelector('input[name="diaryVisibility"]:checked');
     if (checked) gameState.player.house.diary.visibility = checked.value;

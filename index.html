@@ -1562,6 +1562,7 @@
         <div class="modal-content shop2-modal-content myhouse-modal-content">
             <div class="win-titlebar-facility">
                 <button class="facility-back-btn" id="diaryComposeBackBtn" onclick="diaryEditId=null;renderDiaryContent(document.getElementById('myhouseRight'))" style="display:none;">← 戻る</button>
+                <button class="facility-back-btn" id="shopinvBackBtn" onclick="closeShopInventoryView()" style="display:none;">← 戻る</button>
                 <span class="win-titlebar-facility-title" id="myhouseTitle">マイホーム</span>
                 <div class="win-titlebar-btns">
                     <button class="win-titlebar-btn win-titlebar-facility-close" onclick="closeMyHome()">✕</button>
@@ -1598,25 +1599,6 @@
         </div>
     </div>
 
-    <!-- URLスペース プレビューモーダル -->
-    <div class="modal" id="urlPreviewModal" style="display:none;">
-        <div class="modal-content url-preview-modal-content">
-            <div class="url-preview-titlebar">
-                <span class="url-preview-titlebar-title">プレビュー</span>
-                <div class="win-titlebar-btns">
-                    <button class="win-titlebar-btn url-preview-titlebar-close" onclick="closeUrlPreview()">✕</button>
-                </div>
-            </div>
-            <div class="url-preview-modal-body">
-                <div class="url-preview-nav-row" id="urlPreviewNavRow">
-                    <!-- JSで生成 -->
-                </div>
-                <div class="url-preview-view-area" id="urlPreviewViewArea">
-                    <!-- JSで生成 -->
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- 売却モーダル -->
     <div class="modal" id="sellModal">
@@ -2428,7 +2410,7 @@
     <!-- ショップ在庫管理 エラーモーダル -->
     <div class="modal" id="shopinvErrorModal">
         <div class="modal-content shopinv-error-modal-content">
-            <div class="shopinv-error-titlebar">
+            <div class="win-titlebar shopinv-error-titlebar">
                 <span class="win-titlebar-title"></span>
                 <div class="win-titlebar-btns">
                     <button class="win-titlebar-btn" onclick="closeShopinvErrorModal()">✕</button>

@@ -16253,31 +16253,15 @@ p.shokudo-select-name {
 /* カートに入っているアイテムの行ハイライト */
 
 /* ============================================
-   ショップ在庫管理モーダル
-   ============================================ */
-
-/* ============================================
    ショップ在庫管理 エラーモーダル
    ============================================ */
 .shopinv-error-modal-content {
     width: 420px;
     max-width: 90vw;
     border: 3px solid #444;
-    border-radius: 4px;
-    overflow: hidden;
-    padding: 0;
 }
 .shopinv-error-titlebar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 5px 5px 6px 13px;
     background: #444;
-}
-.shopinv-error-titlebar .win-titlebar-title {
-    color: #faf4ef;
-    font-size: 14px;
-    font-weight: bold;
 }
 .shopinv-error-titlebar .win-titlebar-btn {
     background: #444;
@@ -16402,13 +16386,18 @@ p.shokudo-select-name {
     cursor: pointer;
     transition: background 0.1s;
 }
+.shopinv-row:hover td {
+    background: #e8e8e8;
+}
 
 
 /* 販売チェックボックスセル */
 .shopinv-cb-cell {
-    text-align: center !important;
     white-space: nowrap;
     width: 1%;
+}
+#shopInventoryTable td.shopinv-cb-cell {
+    text-align: center;
 }
 #shopInventoryTable thead th:first-child {
     width: 1%;
@@ -16426,9 +16415,6 @@ p.shokudo-select-name {
 }
 #shopInventoryTable td {
     border-right-color: #e0e0e0;
-}
-#shopInventoryTable td.shop2-price {
-    color: #333;
 }
 #shopInventoryTable tbody td:nth-child(1),
 #shopInventoryTable tbody td:nth-child(15) { border-right-color: #ccc; }
@@ -16476,13 +16462,6 @@ p.shokudo-select-name {
     display: none;
 }
 
-/* ジャンルセル */
-.shopinv-genre-cell {
-    white-space: nowrap;
-    color: #888;
-    font-size: 11px;
-}
-
 /* 商品名セル（下線でクリック可を表現） */
 .shopinv-name-cell {
     font-weight: bold;
@@ -16490,7 +16469,9 @@ p.shokudo-select-name {
     text-underline-offset: 3px;
     color: #0065df;
     white-space: nowrap;
-    text-align: left !important;
+}
+#shopInventoryTable td.shopinv-name-cell {
+    text-align: left;
 }
 
 .shopinv-qty-cell {
@@ -16498,10 +16479,7 @@ p.shokudo-select-name {
 }
 
 .shopinv-row-listed td {
-    background: #bcd8ff !important;
-}
-.shopinv-row-listed:hover td {
-    background: #bcd8ff !important;
+    background: #e1efff !important;
 }
 
 .shopinv-unset {
@@ -16534,7 +16512,7 @@ p.shokudo-select-name {
     text-align: center;
     color: #999;
     font-size: 14px;
-    padding: 40px 20px !important;
+    padding: 40px 20px;
     line-height: 2;
 }
 
@@ -16610,7 +16588,7 @@ p.shokudo-select-name {
     flex-shrink: 0;
 }
 .shopinv-hint {
-    font-size: 11px;
+    font-size: 12px;
     color: #999;
     margin: 0;
 }
@@ -16629,47 +16607,6 @@ p.shokudo-select-name {
     font-weight: bold;
     cursor: pointer;
     flex-shrink: 0;
-}
-.shopinv-discard-all-btn {
-    width: 100%;
-    padding: 8px 0;
-    background: #fff;
-    border: 1.5px solid #cc4444;
-    border-radius: 6px;
-    color: #cc4444;
-    font-size: 13px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.shopinv-discard-all-btn:hover {
-    background: #fff0f0;
-}
-
-/* 保存エリア */
-.shopinv-save-area {
-    margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid #eee;
-}
-.shopinv-save-btn {
-    width: 100%;
-    padding: 12px 0;
-    background: #e6913f;
-    border: none;
-    border-radius: 8px;
-    color: #fff;
-    font-size: 15px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.shopinv-save-btn:hover {
-    background: #d07820;
-}
-.shopinv-save-btn:disabled {
-    background: #ccc;
-    cursor: default;
 }
 
 

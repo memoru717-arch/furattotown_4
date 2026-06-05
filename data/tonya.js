@@ -16,6 +16,8 @@ let tonyaPriceFilter = 'all';
 let tonyaGenreFilter = 'all';
 let tonyaAbilityFilter = 'none';
 
+const TONYA_ABILITIES = ['国語', '数学', '理科', '社会', '英語', '音楽', '美術', '体力', '気力', 'ルックス', '素早さ', '面白さ', '優しさ', 'エロさ'];
+
 // 日替わりアイテムキャッシュ（モーダルが開いている間だけ有効）
 let tonyaDailyItemsCache = null;
 
@@ -144,10 +146,6 @@ function openTonyaModal() {
     document.getElementById('tonyaCartModal').style.display = 'none';
     document.getElementById('tonyaCompleteView').style.display = 'none';
 
-    // カートボタンをショップ所持状況に応じて制御
-    const cartBtn = document.querySelector('#tonyaListView .shop2-cart-open-btn');
-    if (cartBtn) cartBtn.disabled = !playerHasTonyaShop();
-
     // ジャンルセレクト初期化
     initTonyaGenreSelect();
     renderTonyaTable();
@@ -180,7 +178,10 @@ function renderTonyaTable() {
     const tbody = document.getElementById('tonyaTableBody');
     const items = getFilteredTonyaItems();
     const hasShop = playerHasTonyaShop();
-    const abilities = ['国語', '数学', '理科', '社会', '英語', '音楽', '美術', '体力', '気力', 'ルックス', '素早さ', '面白さ', '優しさ', 'エロさ'];
+
+    // カートボタンをショップ所持状況に応じて制御
+    const cartBtn = document.querySelector('#tonyaListView .shop2-cart-open-btn');
+    if (cartBtn) cartBtn.disabled = !hasShop;
 
     // ── アイテム行 ──
     let itemsHtml = '';
@@ -201,7 +202,7 @@ function renderTonyaTable() {
         } else {
             itemsHtml += `<td class="shop2-item-name"><b>${item.name}</b></td>`;
         }
-        for (const ab of abilities) {
+        for (const ab of TONYA_ABILITIES) {
             itemsHtml += `<td>${stats[ab] || ''}</td>`;
         }
         itemsHtml += `<td>${item.bodyConsume || ''}</td>`;
@@ -304,8 +305,9 @@ function getFilteredTonyaItems() {
 }
 
 function updateTonyaRowState(itemName, selected) {
-    const escapedName = itemName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    const row = document.querySelector(`#tonyaTableBody tr[data-item-name="${escapedName}"]`);
+    const tbody = document.getElementById('tonyaTableBody');
+    const row = Array.from(tbody.querySelectorAll('tr[data-item-name]'))
+        .find(r => r.dataset.itemName === itemName);
     if (!row) return;
     row.classList.toggle('shop2-row-selected', selected);
     const cb = row.querySelector('.tonya-item-cb');
@@ -400,7 +402,7 @@ function renderTonyaCart() {
         const safeNameAttr = JSON.stringify(cartItem.name).replace(/"/g, '&quot;');
         html += `
             <div class="shop2-cart-item">
-                <span class="shop2-cart-name">${cartItem.name}</span>
+                <span class="shop2-cart-name">${escapeHtml(cartItem.name)}</span>
                 ${discountHtml}
                 <span class="shop2-cart-price">${subtotal.toLocaleString()}円</span>
                 <div class="shop2-cart-qty">
@@ -433,15 +435,10 @@ function renderTonyaCart() {
 function tonyaChangeQty(itemName, delta) {
     const cartItem = tonyaCart.find(c => c.name === itemName);
     if (!cartItem) return;
-    cartItem.quantity = Math.max(1, Math.min(30, cartItem.quantity + delta));
-    renderTonyaCart();
-}
-
-// 数量設定
-function tonyaSetQty(itemName, value) {
-    const cartItem = tonyaCart.find(c => c.name === itemName);
-    if (!cartItem) return;
-    cartItem.quantity = Math.max(1, Math.min(30, parseInt(value) || 1));
+    const remaining = (gameState.tonyaStock?.[itemName] !== undefined)
+        ? gameState.tonyaStock[itemName]
+        : 30;
+    cartItem.quantity = Math.max(1, Math.min(remaining, cartItem.quantity + delta));
     renderTonyaCart();
 }
 
@@ -471,6 +468,14 @@ function purchaseTonya() {
         });
     }
 
+    // 在庫超過チェック（安全ネット）
+    for (const purchase of purchaseList) {
+        const remaining = (gameState.tonyaStock?.[purchase.name] !== undefined)
+            ? gameState.tonyaStock[purchase.name]
+            : 30;
+        if (purchase.quantity > remaining) return;
+    }
+
     // 預金残高チェック
     if (total > gameState.savings) {
         return;
@@ -487,8 +492,11 @@ function purchaseTonya() {
         // プレイヤーの仕入れ在庫に追加
         const existing = gameState.shopStock.find(s => s.name === purchase.name);
         if (existing) {
-            existing.quantity += purchase.quantity;
-            existing.costPrice = purchase.costPrice;
+            const totalQty = existing.quantity + purchase.quantity;
+            existing.costPrice = Math.floor(
+                (existing.costPrice * existing.quantity + purchase.costPrice * purchase.quantity) / totalQty
+            );
+            existing.quantity = totalQty;
         } else {
             gameState.shopStock.push(purchase);
         }
@@ -500,7 +508,7 @@ function purchaseTonya() {
         gameState.tonyaStock[purchase.name] = Math.max(0, tonyaCurrent - purchase.quantity);
     }
 
-    addBankHistory('withdraw', total, '問屋仕入れ');
+    addBankHistory('payment', total, '問屋仕入れ');
 
     // 保存
     saveGame(true);

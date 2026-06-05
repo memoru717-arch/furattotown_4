@@ -945,7 +945,7 @@ function openShopInventoryModal() {
                                 <div class="shopinv-input-row">
                                     <input type="number" id="shopinvDiscardQty" class="shopinv-input" min="1" placeholder="個数">
                                     <span class="shopinv-unit">個</span>
-                                    <button class="shopinv-discard-btn" onclick="discardShopInventoryItem(false)">破棄</button>
+                                    <button class="shopinv-discard-btn" onclick="discardShopInventoryItem()">破棄</button>
                                 </div>
                             </div>
                         </div>
@@ -975,7 +975,7 @@ function renderShopInventoryTable() {
         const genre = itemGenreMap[s.name] || '';
         if (genre !== lastGenre) {
             lastGenre = genre;
-            html += `<tr class="separator-row"><td colspan="22">${genre}</td></tr>`;
+            html += `<tr class="separator-row"><td colspan="22">${escapeHtml(genre)}</td></tr>`;
         }
         const master = shopItems.find(i => i.name === s.name) || tonyaItems.find(i => i.name === s.name) || {};
         const stats = master.stats || {};
@@ -987,16 +987,16 @@ function renderShopInventoryTable() {
 
         html += `<tr class="shopinv-row${isActive ? ' active' : ''}${listed ? ' shopinv-row-listed' : ''}" data-name="${escapeHtml(s.name)}" onclick="openShopInventoryPanel(${safeNameJs})">`;
         html += `<td class="shopinv-cb-cell" onclick="event.stopPropagation()"><button class="shopinv-toggle-btn${listed ? ' active' : ''}" onclick="shopinvTableToggleClick(this, ${safeNameJs})"><div class="recommend-toggle"><span class="recommend-on-text">出品</span><span class="recommend-off-text">停止</span><div class="recommend-knob"></div></div></button></td>`;
-        html += `<td class="shopinv-name-cell">${s.name}</td>`;
+        html += `<td class="shopinv-name-cell">${escapeHtml(s.name)}</td>`;
         html += `<td class="shop2-price">${sellPriceText}</td>`;
         html += `<td class="shopinv-qty-cell">${s.quantity}</td>`;
         for (const ab of abilities) {
-            html += `<td>${stats[ab] || ''}</td>`;
+            html += `<td>${escapeHtml(stats[ab] || '')}</td>`;
         }
-        html += `<td>${master.bodyConsume || ''}</td>`;
-        html += `<td>${master.brainConsume || ''}</td>`;
-        html += `<td>${master.useCount || ''}</td>`;
-        html += `<td>${master.cooldown || ''}</td>`;
+        html += `<td>${escapeHtml(master.bodyConsume || '')}</td>`;
+        html += `<td>${escapeHtml(master.brainConsume || '')}</td>`;
+        html += `<td>${escapeHtml(master.useCount || '')}</td>`;
+        html += `<td>${escapeHtml(master.cooldown || '')}</td>`;
         html += `</tr>`;
     }
     tbody.innerHTML = html;
@@ -1020,7 +1020,7 @@ function openShopInventoryPanel(itemName) {
     document.getElementById('shopinvSellPrice').value = inv.sellPrice || '';
     document.getElementById('shopinvSellPrice').min = 1;
     document.getElementById('shopinvSellPrice').max = maxPrice;
-    document.getElementById('shopinvPriceHint').textContent = `仕入れ値：${(stock.costPrice || 0).toLocaleString()}円 ｜ 上限：${maxPrice.toLocaleString()}円 まで`;
+    document.getElementById('shopinvPriceHint').innerHTML = `仕入れ値：<strong>${(stock.costPrice || 0).toLocaleString()}円</strong> ｜ 上限：<strong>${maxPrice.toLocaleString()}円</strong> まで`;
     document.getElementById('shopinvDiscardQty').value = '';
     document.getElementById('shopinvDiscardQty').max = stock.quantity;
     updateShopListedButtons(inv.listed === true);
@@ -1141,24 +1141,18 @@ function saveShopInventoryItem() {
     }
 }
 
-function discardShopInventoryItem(all) {
+function discardShopInventoryItem() {
     if (!shopinvCurrentItem) return;
     const stock = (gameState.shopStock || []).find(s => s.name === shopinvCurrentItem);
     if (!stock) return;
 
-    let qty;
-    if (all) {
-        if (!confirm(`「${shopinvCurrentItem}」を全部（${stock.quantity}個）破棄しますか？`)) return;
-        qty = stock.quantity;
-    } else {
-        const input = parseInt(document.getElementById('shopinvDiscardQty').value) || 0;
-        if (input < 1 || input > stock.quantity) {
-            alert(`1〜${stock.quantity}個の範囲で入力してください。`);
-            return;
-        }
-        if (!confirm(`「${shopinvCurrentItem}」を${input}個破棄しますか？`)) return;
-        qty = input;
+    const input = parseInt(document.getElementById('shopinvDiscardQty').value) || 0;
+    if (input < 1 || input > stock.quantity) {
+        alert(`1〜${stock.quantity}個の範囲で入力してください。`);
+        return;
     }
+    if (!confirm(`「${shopinvCurrentItem}」を${input}個破棄しますか？`)) return;
+    const qty = input;
 
     stock.quantity -= qty;
     if (stock.quantity <= 0) {
@@ -1173,6 +1167,7 @@ function discardShopInventoryItem(all) {
         document.getElementById('shopinvDiscardQty').value = '';
         renderShopInventoryTable();
     }
+    saveGame(true);
 }
 
 function setHomeContent(contentId, checked) {

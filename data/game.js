@@ -3,7 +3,7 @@
 // ============================================
 
 // 選択可能なアバター（Profile1〜104）
-const avatarOptions = Array.from({length: 104}, (_, i) => `Profile/Profile${i + 1}.png`);
+const avatarOptions = Array.from({length: 104}, (_, i) => `Profile/profile${i + 1}.png`);
 
 // お知らせ本文マスター（localStorageに依存しないよう定数で管理）
 const NEWS_BODIES = {
@@ -52,7 +52,7 @@ const _startingBody = _generateStartingBody();
 const gameState = {
     player: {
         name: 'ユーザー',
-        avatar: 'Profile/Profile1.png',
+        avatar: 'Profile/profile1.png',
         avatarBgColor: '#FFB6C1',
         money: 0,
         health: 50,
@@ -114,7 +114,7 @@ const gameState = {
     tonyaStock: {},
     lastTonyaStockResetDate: null,
     // 銀行預金
-    savings: 0,
+    savings: 30000000,
     // 入出金履歴（最新100件）
     bankHistory: [],
     // 掲示板データ
