@@ -2,7 +2,7 @@
 // マイホーム
 // ============================================
 const myhouseContentDefs = {
-    bulletin: { name: '共同掲示板', icon: '📋' },
+    bulletin: { name: '交流掲示板', icon: '📋' },
     shop:     { name: 'ショップ', icon: '🏪' },
     url:      { name: 'ウェブリンク', icon: '🌐' },
     diary:    { name: '家主掲示板', icon: '📖' },
@@ -11,11 +11,13 @@ const myhouseContentDefs = {
 let myhouseMode = 'view'; // 'view' | 'settings'
 let myhouseActiveContent = null;
 let myhouseActiveSetting = null;
+let myhouseIsOwner = false;
 
 function openMyHome() {
     const house = gameState.player.house;
     if (!house) return;
 
+    myhouseIsOwner = true;
     myhouseMode = 'view';
     myhouseActiveSetting = null;
     document.getElementById('myhouseModal').classList.remove('settings-mode');
@@ -43,20 +45,22 @@ function renderMyhouseSidebar() {
         if (contents.length === 0) {
             contentHtml = '<p class="myhouse-sb-empty">コンテンツがありません</p>';
         } else {
-            contentHtml = contents.map(id => {
-                const def = myhouseContentDefs[id] || { name: id, icon: '🏠' };
-                const isActive = id === myhouseActiveContent;
-                const title = getContentTitle(id);
-                return `<button class="myhouse-sb-btn${isActive ? ' active' : ''}" onclick="selectMyhouseContent('${id}', this)">${title}</button>`;
-            }).join('');
+            const CONTENT_ORDER = ['bulletin', 'shop', 'url', 'diary'];
+            contentHtml = CONTENT_ORDER
+                .filter(id => contents.includes(id))
+                .map(id => {
+                    const isActive = id === myhouseActiveContent;
+                    const title = getContentTitle(id);
+                    return `<button class="myhouse-sb-btn${isActive ? ' active' : ''}" onclick="selectMyhouseContent('${id}', this)">${title}</button>`;
+                }).join('');
         }
         sidebar.innerHTML = `
             <div class="myhouse-sb-content">${contentHtml}</div>
             <div class="myhouse-sb-footer">
                 <button class="myhouse-sb-setting-btn" onclick="openSaisenModal()"><img src="status/mail/coin.svg" class="myhouse-setting-icon saisen-btn-icon">お賽銭する</button>
-                <button class="myhouse-sb-setting-btn" onclick="switchMyhouseToSettings()">
+                ${myhouseIsOwner ? `<button class="myhouse-sb-setting-btn" onclick="switchMyhouseToSettings()">
                     <img src="status/mail/haguruma.png" class="myhouse-setting-icon">おうち設定
-                </button>
+                </button>` : ''}
             </div>`;
     } else {
         const allDefs = [
@@ -65,12 +69,15 @@ function renderMyhouseSidebar() {
             { id: 'url',      def: myhouseContentDefs.url },
             { id: 'diary',    def: myhouseContentDefs.diary },
         ];
-        const contentSubHtml = allDefs.map(({ id, def }) => {
-            const isActive = myhouseActiveSetting === `content_${id}`;
-            return `<button class="myhouse-sb-sub-btn${isActive ? ' active' : ''}" onclick="selectMyhouseSetting('content_${id}', this)">${def.name}</button>`;
-        }).join('');
+        const contentSubHtml = allDefs
+            .filter(({ id }) => contents.includes(id))
+            .map(({ id, def }) => {
+                const isActive = myhouseActiveSetting === `content_${id}`;
+                return `<button class="myhouse-sb-sub-btn${isActive ? ' active' : ''}" onclick="selectMyhouseSetting('content_${id}', this)">${def.name}</button>`;
+            }).join('');
         const kisekaeActive  = myhouseActiveSetting === 'kisekae';
         const exteriorActive = myhouseActiveSetting === 'exterior';
+        const hikkoshiActive = myhouseActiveSetting === 'hikkoshi';
         const sellActive     = myhouseActiveSetting === 'sell';
         sidebar.innerHTML = `
             <div class="myhouse-sb-content">
@@ -79,6 +86,7 @@ function renderMyhouseSidebar() {
                 ${contentSubHtml}
                 <p class="myhouse-sb-section-label">おうち全般</p>
                 <button class="myhouse-sb-sub-btn${exteriorActive ? ' active' : ''}" onclick="selectMyhouseSetting('exterior', this)">🏠 外装変更</button>
+                <button class="myhouse-sb-sub-btn${hikkoshiActive ? ' active' : ''}" onclick="selectMyhouseSetting('hikkoshi', this)">🚚 引っ越し</button>
                 <button class="myhouse-sb-sub-btn${sellActive ? ' active' : ''}" onclick="selectMyhouseSetting('sell', this)">💰 売却</button>
             </div>
             <div class="myhouse-sb-footer">
@@ -105,10 +113,20 @@ function switchMyhouseToSettings() {
 
 function switchMyhouseToView() {
     myhouseMode = 'view';
-    myhouseActiveContent = null;
+    myhouseActiveSetting = null;
     document.getElementById('myhouseModal').classList.remove('settings-mode');
+
+    const house = gameState.player.house;
+    const contents = (house && house.contents) || [];
+    const homeId = (house && house.homeContent) || 'bulletin';
+    myhouseActiveContent = contents.includes(homeId) ? homeId : (contents[0] || null);
+
     renderMyhouseSidebar();
-    document.getElementById('myhouseRight').innerHTML = '';
+    if (myhouseActiveContent) {
+        renderMyhouseContent(myhouseActiveContent, document.getElementById('myhouseRight'));
+    } else {
+        document.getElementById('myhouseRight').innerHTML = '';
+    }
 }
 
 function selectMyhouseSetting(id, btn) {
@@ -139,6 +157,14 @@ function renderMyhouseSettingArea(id) {
         </div>`;
         return;
     }
+    if (id === 'hikkoshi') {
+        right.innerHTML = `<div class="myhouse-placeholder">
+            <div class="myhouse-placeholder-icon">🚚</div>
+            <div class="myhouse-placeholder-name">引っ越し</div>
+            <p class="myhouse-placeholder-msg">準備中です。<br>もうしばらくお待ちください！</p>
+        </div>`;
+        return;
+    }
     if (id === 'sell') {
         right.innerHTML = `<div class="myhouse-sell-area">
             <p class="myhouse-sell-title">🏠 家を売却する</p>
@@ -150,6 +176,18 @@ function renderMyhouseSettingArea(id) {
 }
 
 function renderMyhouseContent(contentId, container) {
+    const visibility = ((gameState.player.house && gameState.player.house.contentVisibility) || {})[contentId] || 'public';
+    if (!myhouseIsOwner && (visibility === 'private' || visibility === 'friends')) {
+        const def = myhouseContentDefs[contentId] || { name: contentId, icon: '🏠' };
+        const msg = visibility === 'friends' ? 'フレンドのみ公開中です' : '非公開中です';
+        container.innerHTML = `
+            <div class="myhouse-placeholder">
+                <div class="myhouse-placeholder-icon">🔒</div>
+                <div class="myhouse-placeholder-name">${escapeHtml(def.name)}は${msg}</div>
+                <p class="myhouse-placeholder-msg">このコンテンツは現在非公開に設定されています。</p>
+            </div>`;
+        return;
+    }
     if (contentId === 'bulletin') {
         renderBulletinContent(container);
         return;
@@ -170,7 +208,7 @@ function renderMyhouseContent(contentId, container) {
     container.innerHTML = `
         <div class="myhouse-placeholder">
             <div class="myhouse-placeholder-icon">${def.icon}</div>
-            <div class="myhouse-placeholder-name">${def.name}</div>
+            <div class="myhouse-placeholder-name">${escapeHtml(def.name)}</div>
             <p class="myhouse-placeholder-msg">このコンテンツは準備中です。<br>もうしばらくお待ちください！</p>
         </div>`;
 }
@@ -239,34 +277,37 @@ function renderMyhouseShopContent(container) {
     renderMyhouseShopTable();
 }
 
+function buildItemMaps() {
+    const itemGenreMap = {};
+    const itemOrderMap = {};
+    const genreMap = new Map();
+    const genreOrder = [];
+    let cg = null;
+    for (const item of [...shopItems, ...tonyaItems]) {
+        if (item.type === 'separator') {
+            cg = item.name;
+            if (!genreMap.has(cg)) { genreMap.set(cg, []); genreOrder.push(cg); }
+        } else if (item.name && cg) {
+            const arr = genreMap.get(cg);
+            if (!arr.includes(item.name)) arr.push(item.name);
+        }
+    }
+    genreOrder.forEach((genre, gi) => {
+        genreMap.get(genre).forEach((name, ii) => {
+            itemGenreMap[name] = genre;
+            itemOrderMap[name] = gi * 10000 + ii;
+        });
+    });
+    return { itemGenreMap, itemOrderMap };
+}
+
 function renderMyhouseShopTable() {
     const tbody = document.getElementById('myhouseShopTableBody');
     if (!tbody) return;
 
     const abilities = ['国語', '数学', '理科', '社会', '英語', '音楽', '美術', '体力', '気力', 'ルックス', '素早さ', '面白さ', '優しさ', 'エロさ'];
 
-    const itemGenreMap = {};
-    const itemOrderMap = {};
-    {
-        const genreMap = new Map();
-        const genreOrder = [];
-        let cg = null;
-        for (const item of [...shopItems, ...tonyaItems]) {
-            if (item.type === 'separator') {
-                cg = item.name;
-                if (!genreMap.has(cg)) { genreMap.set(cg, []); genreOrder.push(cg); }
-            } else if (item.name && cg) {
-                const arr = genreMap.get(cg);
-                if (!arr.includes(item.name)) arr.push(item.name);
-            }
-        }
-        genreOrder.forEach((genre, gi) => {
-            genreMap.get(genre).forEach((name, ii) => {
-                itemGenreMap[name] = genre;
-                itemOrderMap[name] = gi * 10000 + ii;
-            });
-        });
-    }
+    const { itemGenreMap, itemOrderMap } = buildItemMaps();
 
     let listedInv = (gameState.shopInventory || []).filter(inv => inv.listed === true && inv.sellPrice > 0);
     listedInv = [...listedInv].sort((a, b) => (itemOrderMap[a.name] ?? 999) - (itemOrderMap[b.name] ?? 999));
@@ -448,7 +489,7 @@ function renderUrlSpaceContent(container) {
     const linkHtml = hasUrl
         ? `<div class="myhouse-url-fallback">
                <span class="myhouse-url-fallback-label">${escapeHtml(displayLabel)}</span>
-               <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer"
+               <a href="${/^https?:\/\//i.test(s.url) ? escapeHtml(s.url) : '#'}" target="_blank" rel="noopener noreferrer"
                    class="myhouse-url-open-btn">開いてみる <img src="house/icon/open.svg" style="width:18px;vertical-align:middle;margin-bottom:2px;"></a>
            </div>`
         : '';
@@ -464,10 +505,6 @@ function prevUrlSlide() {
 function nextUrlSlide() {
     if (urlSlideshowImages.length <= 1) return;
     urlSlideshowIndex = (urlSlideshowIndex + 1) % urlSlideshowImages.length;
-    updateUrlSlideshow();
-}
-function goToUrlSlide(i) {
-    urlSlideshowIndex = i;
     updateUrlSlideshow();
 }
 function updateUrlSlideshow() {
@@ -501,16 +538,22 @@ async function handleUrlImageUpload(index, input) {
     const compressed = await compressImage(input.files[0]);
     if (!gameState.player.house.urlSpace) gameState.player.house.urlSpace = {};
     if (!gameState.player.house.urlSpace.images) gameState.player.house.urlSpace.images = [];
+    const urlInput = document.getElementById('urlSpaceInput');
+    const labelInput = document.getElementById('urlLabelInput');
+    if (urlInput) gameState.player.house.urlSpace.url = urlInput.value.trim();
+    if (labelInput) gameState.player.house.urlSpace.label = labelInput.value.trim();
     gameState.player.house.urlSpace.images[index] = compressed;
-    saveGame(true);
     renderContentSettingArea('url');
 }
 
 function deleteUrlImage(index) {
     const images = gameState.player.house.urlSpace && gameState.player.house.urlSpace.images;
     if (!images) return;
+    const urlInput = document.getElementById('urlSpaceInput');
+    const labelInput = document.getElementById('urlLabelInput');
+    if (urlInput) gameState.player.house.urlSpace.url = urlInput.value.trim();
+    if (labelInput) gameState.player.house.urlSpace.label = labelInput.value.trim();
     images.splice(index, 1);
-    saveGame(true);
     renderContentSettingArea('url');
 }
 
@@ -521,16 +564,11 @@ function closeMyHome() {
 
 let currentContentSettingId = null;
 
-function saveMyhouseContentSetting() {
-    if (currentContentSettingId === 'url') {
-        saveUrlSpaceSetting();
-    }
-}
-
 function saveUrlSpaceSetting() {
+    saveContentTitle(currentContentSettingId);
+    saveContentVisibility();
     const urlInput = document.getElementById('urlSpaceInput');
     const labelInput = document.getElementById('urlLabelInput');
-    const hiddenInput = document.getElementById('urlHiddenInput');
     if (!urlInput) return;
 
     const url = urlInput.value.trim();
@@ -540,9 +578,8 @@ function saveUrlSpaceSetting() {
     }
 
     if (!gameState.player.house.urlSpace) gameState.player.house.urlSpace = {};
-    gameState.player.house.urlSpace.url    = url;
-    gameState.player.house.urlSpace.label  = labelInput ? labelInput.value.trim() : '';
-    gameState.player.house.urlSpace.hidden = hiddenInput ? hiddenInput.checked : false;
+    gameState.player.house.urlSpace.url   = url;
+    gameState.player.house.urlSpace.label = labelInput ? labelInput.value.trim().slice(0, 60) : '';
 
     saveGame(true);
 
@@ -555,107 +592,103 @@ function saveUrlSpaceSetting() {
     }
 }
 
-function previewUrlSpace() {
-    const url    = document.getElementById('urlSpaceInput')?.value.trim() || '';
-    const label  = document.getElementById('urlLabelInput')?.value.trim() || '';
-    const hidden = document.getElementById('urlHiddenInput')?.checked     || false;
-    const images = (gameState.player.house.urlSpace || {}).images          || [];
-
-    // コンテンツナビボタンを生成（表示のみ・非機能）
-    const house = gameState.player.house;
-    const contents = (house && house.contents) || [];
-    const navRow = document.getElementById('urlPreviewNavRow');
-    navRow.innerHTML = contents.map(id => {
-        const def = myhouseContentDefs[id] || { name: id, icon: '' };
-        const isActive = id === 'url';
-        return `<button class="myhouse-nav-btn${isActive ? ' active' : ''}" style="cursor:default">${def.icon} ${def.name}</button>`;
-    }).join('');
-
-    // プレビュー内容を描画（保存前の現在値で）
-    const viewArea = document.getElementById('urlPreviewViewArea');
-    const original = gameState.player.house.urlSpace;
-    gameState.player.house.urlSpace = { url, label, hidden, images };
-    renderUrlSpaceContent(viewArea);
-    gameState.player.house.urlSpace = original;
-
-    // きせかえテーマをプレビューモーダルに反映
-    const myhouseEl = document.getElementById('myhouseModal');
-    const previewEl = document.getElementById('urlPreviewModal');
-    const themeVars = [
-        '--myhouse-accent', '--myhouse-accent-dark', '--myhouse-accent-light',
-        '--myhouse-bg', '--myhouse-content-bg', '--myhouse-border',
-        '--myhouse-nav-color', '--myhouse-nav-radius', '--myhouse-text', '--myhouse-font-size'
-    ];
-    const computed = getComputedStyle(myhouseEl);
-    themeVars.forEach(v => {
-        const val = computed.getPropertyValue(v).trim();
-        if (val) previewEl.style.setProperty(v, val);
-    });
-
-    previewEl.style.display = 'flex';
-}
-
-function closeUrlPreview() {
-    document.getElementById('urlPreviewModal').style.display = 'none';
-}
 
 function renderContentSettingArea(contentId) {
     currentContentSettingId = contentId;
+    const shopinvBtn = document.getElementById('shopinvBackBtn');
+    if (shopinvBtn) shopinvBtn.style.display = 'none';
     const area = document.getElementById('myhouseRight');
+    const contents = (gameState.player.house && gameState.player.house.contents) || [];
     const homeId = (gameState.player.house && gameState.player.house.homeContent) || 'bulletin';
     const isHome = homeId === contentId;
     const def = myhouseContentDefs[contentId] || { name: contentId, icon: '🏠' };
     const currentTitle = ((gameState.player.house && gameState.player.house.contentTitles) || {})[contentId] || '';
 
-    const titleFieldHtml = `
-        <div class="myhouse-url-field">
-            <label class="myhouse-url-label">タイトル名（10文字以内）</label>
-            <div class="myhouse-title-input-row">
-                <input type="text" id="contentTitleInput" class="myhouse-url-input"
-                    maxlength="10" placeholder="${def.name}" value="${escapeHtml(currentTitle)}">
-                <button class="myhouse-title-save-btn" onclick="saveContentTitle('${contentId}')">変更</button>
+    const currentVisibility = ((gameState.player.house && gameState.player.house.contentVisibility) || {})[contentId] || 'public';
+    const visibilityFieldHtml = `
+        <div class="myhouse-setting-row">
+            <label class="myhouse-setting-row-label">公開範囲</label>
+            <div class="myhouse-setting-row-control">
+                <div class="myhouse-visibility-options">
+                    <label class="myhouse-visibility-label">
+                        <input type="radio" name="contentVisibility" value="public" ${currentVisibility === 'public' ? 'checked' : ''}>
+                        全員に公開
+                    </label>
+                    <label class="myhouse-visibility-label">
+                        <input type="radio" name="contentVisibility" value="friends" ${currentVisibility === 'friends' ? 'checked' : ''}>
+                        フレンドのみ
+                    </label>
+                    <label class="myhouse-visibility-label">
+                        <input type="radio" name="contentVisibility" value="private" ${currentVisibility === 'private' ? 'checked' : ''}>
+                        自分のみ
+                    </label>
+                </div>
             </div>
-            <p class="myhouse-url-hint">空欄の場合、デフォルト名「${def.name}」が表示されます</p>
         </div>`;
-    const homeCheckHtml = `
-        <div class="myhouse-url-field myhouse-home-check-row">
-            <label class="myhouse-home-check-label">
-                <input type="checkbox" id="homeContentCheck" ${isHome ? 'checked' : ''}
-                    onchange="setHomeContent('${contentId}', this.checked)">
-                このコンテンツをホーム画面にする
-            </label>
-            <p class="myhouse-url-hint">訪問者がおうちを開いたとき、最初に表示されるコンテンツです</p>
+
+    const titleFieldHtml = `
+        <div class="myhouse-setting-row">
+            <label class="myhouse-setting-row-label">タイトル</label>
+            <div class="myhouse-setting-row-control">
+                <div class="myhouse-title-input-row">
+                    <input type="text" id="contentTitleInput" class="myhouse-url-input myhouse-title-input"
+                        maxlength="10" value="${escapeHtml(currentTitle)}" placeholder="${escapeHtml(def.name)}"
+                        oninput="updateTitleCharCount()">
+                    <span class="tweet-char-count" id="titleCharCount"></span>
+                </div>
+            </div>
+        </div>`;
+    const homeCheckHtml = contents.length <= 1
+        ? `<div class="myhouse-setting-row">
+            <label class="myhouse-setting-row-label">ホーム画面</label>
+            <div class="myhouse-setting-row-control">
+                <label style="display:flex;align-items:center;gap:8px;cursor:default;">
+                    <input type="checkbox" id="homeContentCheck" checked disabled>
+                    <span style="font-size:16px;">このコンテンツをホーム画面にする</span>
+                </label>
+                <p style="margin:4px 0 0;font-size:12px;color:#999;">コンテンツが1つのため自動設定されています</p>
+            </div>
+        </div>`
+        : `<div class="myhouse-setting-row">
+            <label class="myhouse-setting-row-label">ホーム画面</label>
+            <div class="myhouse-setting-row-control">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="homeContentCheck" ${isHome ? 'checked' : ''}
+                        onchange="setHomeContent('${contentId}', this.checked)">
+                    <span style="font-size:16px;">このコンテンツをホーム画面にする</span>
+                </label>
+            </div>
         </div>`;
 
     if (contentId === 'diary') {
         const d = (gameState.player.house && gameState.player.house.diary) || {};
         const visibility = d.visibility || 'public';
         const visibilityOptions = [
-            { value: 'public',  label: '全員に公開',       desc: '訪問者全員が閲覧できます' },
-            { value: 'friends', label: 'フレンドのみ公開', desc: 'フレンド登録済みのユーザーだけが閲覧できます' },
-            { value: 'private', label: '自分のみ閲覧可',   desc: '自分だけが閲覧できます（非公開）' },
+            { value: 'public',  label: '全員に公開' },
+            { value: 'friends', label: 'フレンドのみ' },
+            { value: 'private', label: '自分のみ' },
         ];
         const visibilityHtml = visibilityOptions.map(opt => `
-            <label class="myhouse-diary-vis-label">
+            <label class="myhouse-visibility-label">
                 <input type="radio" name="diaryVisibility" value="${opt.value}" ${visibility === opt.value ? 'checked' : ''}>
-                <span class="myhouse-diary-vis-text">
-                    <span class="myhouse-diary-vis-title">${opt.label}</span>
-                    <span class="myhouse-diary-vis-desc">${opt.desc}</span>
-                </span>
+                ${opt.label}
             </label>`).join('');
         area.innerHTML = `
             <div class="myhouse-right-scroll"><div class="myhouse-url-setting">
-                <p class="myhouse-url-setting-title">${def.icon} ${def.name}の設定</p>
-                ${titleFieldHtml}
-                ${homeCheckHtml}
-                <div class="myhouse-url-field">
-                    <label class="myhouse-url-label">公開範囲</label>
-                    <div class="myhouse-diary-vis-options">${visibilityHtml}</div>
-                </div>
-                <div class="myhouse-url-actions">
+                <div class="myhouse-setting-title-row">
+                    <p class="myhouse-url-setting-title">${def.name}の設定</p>
                     <button class="myhouse-url-save-btn" id="diarySaveBtn" onclick="saveDiarySetting()">設定を保存</button>
                 </div>
+                ${titleFieldHtml}
+                <div class="myhouse-setting-row">
+                    <label class="myhouse-setting-row-label">公開範囲</label>
+                    <div class="myhouse-setting-row-control">
+                        <div class="myhouse-visibility-options">${visibilityHtml}</div>
+                    </div>
+                </div>
+                ${homeCheckHtml}
             </div></div>`;
+        updateTitleCharCount();
         return;
     }
 
@@ -682,58 +715,77 @@ function renderContentSettingArea(contentId) {
         }
         area.innerHTML = `
             <div class="myhouse-right-scroll"><div class="myhouse-url-setting">
-                <p class="myhouse-url-setting-title">URLスペースの設定</p>
-                ${titleFieldHtml}
-                ${homeCheckHtml}
-                <div class="myhouse-url-field">
-                    <label class="myhouse-url-label">URL</label>
-                    <input type="url" id="urlSpaceInput" class="myhouse-url-input"
-                        placeholder="https://..." value="${escapeHtml(s.url || '')}">
-                </div>
-                <div class="myhouse-url-field">
-                    <label class="myhouse-url-label">表示名（任意）</label>
-                    <input type="text" id="urlLabelInput" class="myhouse-url-input"
-                        placeholder="例：私のお店、ポートフォリオ など" value="${escapeHtml(s.label || '')}">
-                    <p class="myhouse-url-hint">空欄の場合、URLのドメインが自動表示されます</p>
-                </div>
-                <div class="myhouse-url-field">
-                    <label class="myhouse-url-label">プレビュー画像（最大4枚）</label>
-                    <p class="myhouse-url-hint">Webサイトのスクリーンショットをアップロードすると、訪問者に見せることができます。横長サイズ推奨(16:9)</p>
-                    <div class="myhouse-url-slots">${slotsHtml}</div>
-                </div>
-                <div class="myhouse-url-field">
-                    <label class="myhouse-url-checkbox-label">
-                        <input type="checkbox" id="urlHiddenInput" ${s.hidden ? 'checked' : ''}>
-                        URLスペースを非表示にする
-                    </label>
-                </div>
-                <div class="myhouse-url-actions">
-                    <button class="myhouse-url-preview-btn" onclick="previewUrlSpace()">プレビュー</button>
+                <div class="myhouse-setting-title-row">
+                    <p class="myhouse-url-setting-title">${def.name}の設定</p>
                     <button class="myhouse-url-save-btn" onclick="saveUrlSpaceSetting()">設定を保存</button>
                 </div>
+                ${titleFieldHtml}
+                <div class="myhouse-url-group">
+                    <div class="myhouse-setting-row">
+                        <label class="myhouse-setting-row-label">URL</label>
+                        <div class="myhouse-setting-row-control">
+                            <input type="url" id="urlSpaceInput" class="myhouse-url-input myhouse-shop-desc-input"
+                                value="${escapeHtml(s.url || '')}">
+                        </div>
+                    </div>
+                    <div class="myhouse-setting-row">
+                        <label class="myhouse-setting-row-label">紹介文</label>
+                        <div class="myhouse-setting-row-control">
+                            <input type="text" id="urlLabelInput" class="myhouse-url-input myhouse-shop-desc-input"
+                                maxlength="60" oninput="updateUrlLabelCharCount()"
+                                value="${escapeHtml(s.label || '')}">
+                            <div class="myhouse-shop-desc-footer">
+                                <p class="myhouse-url-hint">空欄の場合、URLのドメインが自動表示されます</p>
+                                <span class="tweet-char-count" id="urlLabelCharCount"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="myhouse-setting-row">
+                    <label class="myhouse-setting-row-label">プレビュー画像</label>
+                    <div class="myhouse-setting-row-control">
+                        <div class="myhouse-url-slots">${slotsHtml}</div>
+                        <p class="myhouse-url-hint">画像をアップロードすると、訪問者に見てもらうことができます。横長サイズ推奨(16:9)</p>
+                    </div>
+                </div>
+                ${homeCheckHtml}
+                ${visibilityFieldHtml}
             </div></div>`;
+        updateTitleCharCount();
+        updateUrlLabelCharCount();
         return;
     }
 
     if (contentId === 'shop') {
         area.innerHTML = `
             <div class="myhouse-right-scroll"><div class="myhouse-url-setting">
-                <p class="myhouse-url-setting-title">${def.icon} ${def.name}の設定</p>
+                <div class="myhouse-setting-title-row">
+                    <p class="myhouse-url-setting-title">${def.name}の設定</p>
+                    <button class="myhouse-url-save-btn" id="shopDescSaveBtn" onclick="saveShopDescription()">設定を保存</button>
+                </div>
                 ${titleFieldHtml}
+                <div class="myhouse-setting-row myhouse-setting-row--top">
+                    <label class="myhouse-setting-row-label">ショップの説明文</label>
+                    <div class="myhouse-setting-row-control">
+                        <textarea class="myhouse-url-input myhouse-shop-desc-input" id="shopDescInput" rows="1" maxlength="60" oninput="onShopDescInput()" onkeydown="if(event.key==='Enter')event.preventDefault()">${escapeHtml(gameState.player.shopDescription || '')}</textarea>
+                        <div class="myhouse-shop-desc-footer">
+                            <p class="myhouse-url-hint">ショップ画面の上部に表示される説明文です。</p>
+                            <span class="tweet-char-count" id="shopDescCharCount"></span>
+                        </div>
+                        <p class="myhouse-url-error" id="shopDescError" style="display:none;">60文字以内で入力してください</p>
+                    </div>
+                </div>
+                <div class="myhouse-setting-row">
+                    <label class="myhouse-setting-row-label">商品の管理</label>
+                    <div class="myhouse-setting-row-control">
+                        <button class="myhouse-url-save-btn" style="width:fit-content" onclick="openShopInventoryModal()">在庫を管理する</button>
+                    </div>
+                </div>
                 ${homeCheckHtml}
-                <div class="myhouse-url-field">
-                    <label class="myhouse-url-label">ショップの説明文</label>
-                    <p class="myhouse-url-hint">ショップ画面の上部に表示される説明文です。1行・60文字まで入力できます。</p>
-                    <textarea class="myhouse-url-input" id="shopDescInput" rows="1" placeholder="例：毎日仕入れています！お気軽にどうぞ♪" oninput="onShopDescInput()">${escapeHtml(gameState.player.shopDescription || '')}</textarea>
-                    <p class="myhouse-url-error" id="shopDescError" style="display:none;">60文字以内で入力してください</p>
-                    <button class="myhouse-url-save-btn" id="shopDescSaveBtn" onclick="saveShopDescription()">保存する</button>
-                </div>
-                <div class="myhouse-url-field">
-                    <label class="myhouse-url-label">商品の管理</label>
-                    <p class="myhouse-url-hint">問屋で仕入れた商品の在庫・価格を管理できます。</p>
-                    <button class="myhouse-url-save-btn" onclick="openShopInventoryModal()">🏪 商品の管理を開く</button>
-                </div>
+                ${visibilityFieldHtml}
             </div></div>`;
+        updateTitleCharCount();
+        onShopDescInput();
         return;
     }
 
@@ -741,30 +793,40 @@ function renderContentSettingArea(contentId) {
         const bio = (gameState.player.house && gameState.player.house.bio) || '';
         area.innerHTML = `
             <div class="myhouse-right-scroll"><div class="myhouse-url-setting">
-                <p class="myhouse-url-setting-title">${def.icon} ${def.name}の設定</p>
-                ${titleFieldHtml}
-                ${homeCheckHtml}
-                <div class="myhouse-url-field">
-                    <label class="myhouse-url-label">プロフィール一言メモ（100文字以内）</label>
-                    <textarea id="profileBioInput" class="myhouse-url-input" maxlength="100"
-                        placeholder="こんにちは！気軽に書き込んでね🌸" style="height:80px;resize:vertical;">${escapeHtml(bio)}</textarea>
-                    <p class="myhouse-url-hint">掲示板のプロフィールカードに表示されます</p>
-                </div>
-                <div class="myhouse-url-actions">
+                <div class="myhouse-setting-title-row">
+                    <p class="myhouse-url-setting-title">${def.name}の設定</p>
                     <button class="myhouse-url-save-btn" onclick="saveProfileBio()">設定を保存</button>
                 </div>
+                ${titleFieldHtml}
+                <div class="myhouse-setting-row myhouse-setting-row--top">
+                    <label class="myhouse-setting-row-label">プロフィール紹介文</label>
+                    <div class="myhouse-setting-row-control">
+                        <textarea id="profileBioInput" class="myhouse-url-input myhouse-bio-input" maxlength="100" rows="3"
+                            oninput="updateBioCharCount()"
+                            onkeydown="if(event.key==='Enter')event.preventDefault()"
+                            >${escapeHtml(bio)}</textarea>
+                        <div class="myhouse-bio-footer">
+                            <span></span>
+                            <span class="tweet-char-count" id="bioCharCount"></span>
+                        </div>
+                    </div>
+                </div>
+                ${homeCheckHtml}
+                ${visibilityFieldHtml}
             </div></div>`;
+        updateTitleCharCount();
+        updateBioCharCount();
         return;
     }
 
     area.innerHTML = `
         <div class="myhouse-right-scroll"><div class="myhouse-url-setting">
-            <p class="myhouse-url-setting-title">${def.icon} ${def.name}の設定</p>
+            <p class="myhouse-url-setting-title">${def.name}の設定</p>
             ${titleFieldHtml}
-            ${homeCheckHtml}
             <div class="myhouse-placeholder" style="min-height:180px;">
                 <p class="myhouse-placeholder-msg">その他の設定項目は準備中です。<br>もうしばらくお待ちください！</p>
             </div>
+            ${homeCheckHtml}
         </div></div>`;
 }
 
@@ -777,42 +839,65 @@ function onShopDescInput() {
     const input = document.getElementById('shopDescInput');
     const errorEl = document.getElementById('shopDescError');
     const btn = document.getElementById('shopDescSaveBtn');
+    const counter = document.getElementById('shopDescCharCount');
     if (!input) return;
-    const over = input.value.trim().length > 60;
+    input.value = input.value.replace(/\n/g, '');
+    const len = input.value.length;
+    const over = len > 60;
     if (errorEl) errorEl.style.display = over ? '' : 'none';
     if (btn) btn.disabled = over;
+    if (counter) {
+        counter.textContent = `${len} / 60`;
+        counter.className = 'tweet-char-count' + (over ? ' at-limit' : len >= 50 ? ' near-limit' : '');
+    }
 }
 
 function saveShopDescription() {
+    saveContentTitle(currentContentSettingId);
+    saveContentVisibility();
     const input = document.getElementById('shopDescInput');
-    if (!input || input.value.length > 60) return;
-    gameState.player.shopDescription = input.value.trim();
-    saveGame();
-    showToast('説明文を保存しました！');
+    if (!input) return;
+    gameState.player.shopDescription = input.value.replace(/\n/g, '').trim().slice(0, 60);
+    saveGame(true);
+    const btn = document.getElementById('shopDescSaveBtn');
+    if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = '保存しました';
+        btn.disabled = true;
+        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+    }
+}
+
+
+function closeShopInventoryView() {
+    const btn = document.getElementById('shopinvBackBtn');
+    if (btn) btn.style.display = 'none';
+    renderContentSettingArea('shop');
 }
 
 function openShopInventoryModal() {
     shopinvCurrentItem = null;
+    const btn = document.getElementById('shopinvBackBtn');
+    if (btn) btn.style.display = '';
     const right = document.getElementById('myhouseRight');
     right.innerHTML = `
         <div class="shopinv-view">
-            <div class="shopinv-view-header">
-                <button class="shopinv-back-btn" onclick="renderContentSettingArea('shop')">← 戻る</button>
-                <span class="shopinv-view-title">🏪 商品の管理</span>
-            </div>
             <div class="shopinv-listview">
+                <div style="margin-bottom:12px;">
+                    <p style="margin:0;font-size:14px;color:#333;">問屋で仕入れた商品の販売設定ができます（最大15種類・価格は仕入れ値の3倍まで）</p>
+                </div>
                 <div class="shop2-table-container">
                     <table class="shop2-table" id="shopInventoryTable">
                         <thead>
                             <tr class="shop2-header-group">
-                                <th rowspan="2">販売</th>
+                                <th rowspan="2">陳列</th>
                                 <th rowspan="2">商品名</th>
                                 <th rowspan="2">販売価格</th>
+                                <th rowspan="2">在庫数</th>
                                 <th colspan="14">アップする能力値</th>
                                 <th colspan="2">消費パワー</th>
                                 <th rowspan="2">使用<br>回数</th>
                                 <th rowspan="2">使用<br>間隔</th>
-                                <th rowspan="2">在庫数</th>
                             </tr>
                             <tr class="shop2-header-sub">
                                 <th>国</th><th>数</th><th>理</th><th>社</th><th>英</th>
@@ -833,40 +918,36 @@ function openShopInventoryModal() {
                                 <span id="shopinvPanelName" class="shopinv-info-value"></span>
                             </div>
                             <div class="shopinv-info-row">
-                                <span class="shopinv-info-label">仕入れ値</span>
-                                <span id="shopinvPanelPurchasePrice" class="shopinv-info-value"></span>円
-                            </div>
-                            <div class="shopinv-info-row">
                                 <span class="shopinv-info-label">在庫数</span>
                                 <span id="shopinvPanelStock" class="shopinv-info-value"></span>個
                             </div>
                         </div>
                         <div class="shopinv-field">
                             <label class="shopinv-label">販売価格</label>
-                            <div class="shopinv-input-row">
-                                <input type="number" id="shopinvSellPrice" class="shopinv-input" min="1">
-                                <span class="shopinv-unit">円</span>
+                            <div class="shopinv-field-body">
+                                <div class="shopinv-input-row">
+                                    <input type="number" id="shopinvSellPrice" class="shopinv-input" min="1">
+                                    <span class="shopinv-unit">円</span>
+                                    <button class="shopinv-save-price-btn" id="shopinvSavePriceBtn" onclick="saveShopInventoryItem()">保存</button>
+                                </div>
+                                <p class="shopinv-hint" id="shopinvPriceHint"></p>
                             </div>
-                            <p class="shopinv-hint" id="shopinvPriceHint"></p>
                         </div>
                         <div class="shopinv-field">
-                            <label class="shopinv-label">陳列個数</label>
-                            <div class="shopinv-input-row">
-                                <input type="number" id="shopinvSellQty" class="shopinv-input" min="0" max="30">
-                                <span class="shopinv-unit">個</span>
+                            <label class="shopinv-label">陳列</label>
+                            <div class="shopinv-field-body">
+                                <button class="shopinv-toggle-btn" id="shopinvListedToggle" onclick="setShopListed(!this.classList.contains('active'))"><div class="recommend-toggle"><span class="recommend-on-text">出品</span><span class="recommend-off-text">停止</span><div class="recommend-knob"></div></div></button>
                             </div>
                         </div>
                         <div class="shopinv-field shopinv-discard-group">
                             <label class="shopinv-label">破棄</label>
-                            <div class="shopinv-input-row">
-                                <input type="number" id="shopinvDiscardQty" class="shopinv-input" min="1" placeholder="個数">
-                                <span class="shopinv-unit">個</span>
-                                <button class="shopinv-discard-btn" onclick="discardShopInventoryItem(false)">破棄</button>
+                            <div class="shopinv-field-body">
+                                <div class="shopinv-input-row">
+                                    <input type="number" id="shopinvDiscardQty" class="shopinv-input" min="1" placeholder="個数">
+                                    <span class="shopinv-unit">個</span>
+                                    <button class="shopinv-discard-btn" onclick="discardShopInventoryItem(false)">破棄</button>
+                                </div>
                             </div>
-                            <button class="shopinv-discard-all-btn" onclick="discardShopInventoryItem(true)">全部破棄する</button>
-                        </div>
-                        <div class="shopinv-save-area">
-                            <button class="shopinv-save-btn" onclick="saveShopInventoryItem()">保存する</button>
                         </div>
                     </div>
                 </div>
@@ -880,29 +961,7 @@ function renderShopInventoryTable() {
     const stock = gameState.shopStock || [];
     const abilities = ['国語', '数学', '理科', '社会', '英語', '音楽', '美術', '体力', '気力', 'ルックス', '素早さ', '面白さ', '優しさ', 'エロさ'];
 
-    // shopItems＋tonyaItemsのジャンルをMap方式でマージして並び替え
-    const itemOrderMap = {};
-    const itemGenreMap = {};
-    {
-        const genreMap = new Map();
-        const genreOrder = [];
-        let cg = null;
-        for (const item of [...shopItems, ...tonyaItems]) {
-            if (item.type === 'separator') {
-                cg = item.name;
-                if (!genreMap.has(cg)) { genreMap.set(cg, []); genreOrder.push(cg); }
-            } else if (item.name && cg) {
-                const arr = genreMap.get(cg);
-                if (!arr.includes(item.name)) arr.push(item.name);
-            }
-        }
-        genreOrder.forEach((genre, gi) => {
-            genreMap.get(genre).forEach((name, ii) => {
-                itemGenreMap[name] = genre;
-                itemOrderMap[name] = gi * 10000 + ii;
-            });
-        });
-    }
+    const { itemGenreMap, itemOrderMap } = buildItemMaps();
     const sorted = [...stock].sort((a, b) => (itemOrderMap[a.name] ?? 999) - (itemOrderMap[b.name] ?? 999));
 
     if (sorted.length === 0) {
@@ -923,13 +982,14 @@ function renderShopInventoryTable() {
         const isActive = shopinvCurrentItem === s.name;
         const inv = ((gameState.shopInventory || []).find(i => i.name === s.name)) || {};
         const listed = inv.listed === true;
-        const sellPriceText = inv.sellPrice ? inv.sellPrice.toLocaleString() + '円' : '—';
+        const sellPriceText = inv.sellPrice ? inv.sellPrice.toLocaleString() + '円' : '<span class="shopinv-unset">未設定</span>';
         const safeNameJs = JSON.stringify(s.name).replace(/"/g, '&quot;');
 
-        html += `<tr class="shopinv-row${isActive ? ' active' : ''}" onclick="openShopInventoryPanel(${safeNameJs})">`;
-        html += `<td class="shopinv-cb-cell" onclick="event.stopPropagation()"><input type="checkbox" class="shopinv-listed-cb" ${listed ? 'checked' : ''} onchange="toggleShopListed(${safeNameJs}, this.checked)"></td>`;
+        html += `<tr class="shopinv-row${isActive ? ' active' : ''}${listed ? ' shopinv-row-listed' : ''}" data-name="${escapeHtml(s.name)}" onclick="openShopInventoryPanel(${safeNameJs})">`;
+        html += `<td class="shopinv-cb-cell" onclick="event.stopPropagation()"><button class="shopinv-toggle-btn${listed ? ' active' : ''}" onclick="shopinvTableToggleClick(this, ${safeNameJs})"><div class="recommend-toggle"><span class="recommend-on-text">出品</span><span class="recommend-off-text">停止</span><div class="recommend-knob"></div></div></button></td>`;
         html += `<td class="shopinv-name-cell">${s.name}</td>`;
         html += `<td class="shop2-price">${sellPriceText}</td>`;
+        html += `<td class="shopinv-qty-cell">${s.quantity}</td>`;
         for (const ab of abilities) {
             html += `<td>${stats[ab] || ''}</td>`;
         }
@@ -937,7 +997,6 @@ function renderShopInventoryTable() {
         html += `<td>${master.brainConsume || ''}</td>`;
         html += `<td>${master.useCount || ''}</td>`;
         html += `<td>${master.cooldown || ''}</td>`;
-        html += `<td>${s.quantity}</td>`;
         html += `</tr>`;
     }
     tbody.innerHTML = html;
@@ -948,8 +1007,7 @@ function openShopInventoryPanel(itemName) {
 
     // アクティブ行の更新
     document.querySelectorAll('#shopInventoryTableBody tr').forEach(tr => {
-        const nameCell = tr.querySelector('.shopinv-name-cell');
-        tr.classList.toggle('active', nameCell?.textContent === itemName);
+        tr.classList.toggle('active', tr.dataset.name === itemName);
     });
 
     const stock = (gameState.shopStock || []).find(s => s.name === itemName);
@@ -957,17 +1015,15 @@ function openShopInventoryPanel(itemName) {
     if (!stock) return;
 
     document.getElementById('shopinvPanelName').textContent = itemName;
-    document.getElementById('shopinvPanelPurchasePrice').textContent = (stock.costPrice || 0).toLocaleString();
     document.getElementById('shopinvPanelStock').textContent = stock.quantity;
     const maxPrice = (stock.costPrice || 0) * 3;
     document.getElementById('shopinvSellPrice').value = inv.sellPrice || '';
     document.getElementById('shopinvSellPrice').min = 1;
     document.getElementById('shopinvSellPrice').max = maxPrice;
-    document.getElementById('shopinvSellQty').value = inv.sellQty !== undefined ? inv.sellQty : stock.quantity;
-    document.getElementById('shopinvSellQty').max = stock.quantity;
-    document.getElementById('shopinvPriceHint').textContent = `1円〜${maxPrice.toLocaleString()}円（仕入れ値の3倍）まで`;
+    document.getElementById('shopinvPriceHint').textContent = `仕入れ値：${(stock.costPrice || 0).toLocaleString()}円 ｜ 上限：${maxPrice.toLocaleString()}円 まで`;
     document.getElementById('shopinvDiscardQty').value = '';
     document.getElementById('shopinvDiscardQty').max = stock.quantity;
+    updateShopListedButtons(inv.listed === true);
 
     const panel = document.getElementById('shopInventoryPanel');
     panel.classList.remove('closing');
@@ -1001,23 +1057,17 @@ function toggleShopListed(itemName, checked) {
         // 販売価格が未設定の場合はチェック不可
         const inv = (gameState.shopInventory || []).find(i => i.name === itemName);
         if (!inv || !inv.sellPrice || inv.sellPrice <= 0) {
-            showShopinvError('販売価格が未設定です。\n設定後にチェックを入れることができます。');
-            document.querySelectorAll('.shopinv-listed-cb').forEach(cb => {
-                const nameCell = cb.closest('tr')?.querySelector('.shopinv-name-cell');
-                if (nameCell?.textContent === itemName) cb.checked = false;
-            });
+            showShopinvError('販売価格が未設定です。\n設定後にONにすることができます。');
+            renderShopInventoryTable();
             return;
         }
         // 最大15種類チェック
         const listedCount = (gameState.shopInventory || []).filter(
-            i => i.name !== itemName && i.listed !== false
+            i => i.name !== itemName && i.listed === true
         ).length;
         if (listedCount >= 15) {
             showShopinvError('販売できる商品は最大15種類までです。');
-            document.querySelectorAll('.shopinv-listed-cb').forEach(cb => {
-                const nameCell = cb.closest('tr')?.querySelector('.shopinv-name-cell');
-                if (nameCell?.textContent === itemName) cb.checked = false;
-            });
+            renderShopInventoryTable();
             return;
         }
     }
@@ -1030,13 +1080,34 @@ function toggleShopListed(itemName, checked) {
     }
     saveGame(true);
     renderShopInventoryTable();
+    if (shopinvCurrentItem === itemName) updateShopListedButtons(checked);
+}
+
+function updateShopListedButtons(listed) {
+    const toggle = document.getElementById('shopinvListedToggle');
+    if (!toggle) return;
+    toggle.classList.toggle('active', listed);
+}
+
+function setShopListed(checked) {
+    if (!shopinvCurrentItem) return;
+    const panelToggle = document.getElementById('shopinvListedToggle');
+    if (panelToggle) panelToggle.classList.toggle('active', checked);
+    const tableToggle = document.querySelector(`#shopInventoryTableBody tr[data-name="${CSS.escape(shopinvCurrentItem)}"] .shopinv-toggle-btn`);
+    if (tableToggle) tableToggle.classList.toggle('active', checked);
+    setTimeout(() => toggleShopListed(shopinvCurrentItem, checked), 250);
+}
+
+function shopinvTableToggleClick(btn, itemName) {
+    const next = !btn.classList.contains('active');
+    btn.classList.toggle('active', next);
+    setTimeout(() => toggleShopListed(itemName, next), 250);
 }
 
 function saveShopInventoryItem() {
     if (!shopinvCurrentItem) return;
 
     const sellPrice = parseInt(document.getElementById('shopinvSellPrice').value) || 0;
-    const sellQty = parseInt(document.getElementById('shopinvSellQty').value);
 
     const stock = (gameState.shopStock || []).find(s => s.name === shopinvCurrentItem);
     if (!stock) return;
@@ -1050,31 +1121,21 @@ function saveShopInventoryItem() {
         alert(`販売価格は仕入れ値の3倍（${maxSellPrice.toLocaleString()}円）までです。`);
         return;
     }
-    if (isNaN(sellQty) || sellQty < 0 || sellQty > stock.quantity) {
-        alert(`陳列個数は0〜${stock.quantity}個の範囲で入力してください。`);
-        return;
-    }
-    if (sellQty > 30) {
-        alert('陳列できる個数は1種類につき最大30個までです。');
-        return;
-    }
 
     if (!gameState.shopInventory) gameState.shopInventory = [];
     const existing = gameState.shopInventory.find(i => i.name === shopinvCurrentItem);
     if (existing) {
         existing.sellPrice = sellPrice;
-        existing.sellQty = sellQty;
     } else {
-        gameState.shopInventory.push({ name: shopinvCurrentItem, sellPrice, sellQty, listed: false });
+        gameState.shopInventory.push({ name: shopinvCurrentItem, sellPrice, listed: false });
     }
-
     saveGame(true);
     renderShopInventoryTable();
 
-    const btn = document.querySelector('.shopinv-save-btn');
+    const btn = document.getElementById('shopinvSavePriceBtn');
     if (btn) {
         const orig = btn.textContent;
-        btn.textContent = '保存しました';
+        btn.textContent = '✓';
         btn.disabled = true;
         setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
     }
@@ -1105,13 +1166,11 @@ function discardShopInventoryItem(all) {
         if (gameState.shopInventory) {
             gameState.shopInventory = gameState.shopInventory.filter(i => i.name !== shopinvCurrentItem);
         }
-        saveGame(true);
         closeShopInventoryPanel();
         renderShopInventoryTable();
     } else {
         document.getElementById('shopinvPanelStock').textContent = stock.quantity;
         document.getElementById('shopinvDiscardQty').value = '';
-        saveGame(true);
         renderShopInventoryTable();
     }
 }
@@ -1119,7 +1178,6 @@ function discardShopInventoryItem(all) {
 function setHomeContent(contentId, checked) {
     if (!gameState.player.house) return;
     gameState.player.house.homeContent = checked ? contentId : null;
-    saveGame(true);
 }
 
 function getContentTitle(contentId) {
@@ -1128,12 +1186,49 @@ function getContentTitle(contentId) {
     return titles[contentId] || def.name;
 }
 
+function updateTitleCharCount() {
+    const input = document.getElementById('contentTitleInput');
+    const counter = document.getElementById('titleCharCount');
+    if (!input || !counter) return;
+    const len = input.value.length;
+    counter.textContent = `${len} / 10`;
+    counter.className = 'tweet-char-count' + (len >= 10 ? ' at-limit' : len >= 8 ? ' near-limit' : '');
+}
+
+function updateUrlLabelCharCount() {
+    const input = document.getElementById('urlLabelInput');
+    const counter = document.getElementById('urlLabelCharCount');
+    if (!input || !counter) return;
+    const len = input.value.length;
+    counter.textContent = `${len} / 60`;
+    counter.className = 'tweet-char-count' + (len >= 60 ? ' at-limit' : len >= 50 ? ' near-limit' : '');
+}
+
+function updateBioCharCount() {
+    const input = document.getElementById('profileBioInput');
+    const counter = document.getElementById('bioCharCount');
+    if (!input || !counter) return;
+    input.value = input.value.replace(/\n/g, '');
+    const len = input.value.length;
+    counter.textContent = `${len} / 100`;
+    counter.className = 'tweet-char-count' + (len >= 100 ? ' at-limit' : len >= 90 ? ' near-limit' : '');
+}
+
 function saveProfileBio() {
+    saveContentTitle(currentContentSettingId);
+    saveContentVisibility();
     const input = document.getElementById('profileBioInput');
     if (!input) return;
     gameState.player.house.bio = input.value.trim().slice(0, 100);
     saveGame(true);
     showToast('プロフィールを保存しました！');
+}
+
+function saveContentVisibility() {
+    const checked = document.querySelector('input[name="contentVisibility"]:checked');
+    if (!checked) return;
+    if (!gameState.player.house.contentVisibility) gameState.player.house.contentVisibility = {};
+    gameState.player.house.contentVisibility[currentContentSettingId] = checked.value;
 }
 
 function saveContentTitle(contentId) {
@@ -1142,16 +1237,7 @@ function saveContentTitle(contentId) {
     const val = input.value.trim().slice(0, 10);
     if (!gameState.player.house.contentTitles) gameState.player.house.contentTitles = {};
     gameState.player.house.contentTitles[contentId] = val;
-    saveGame(true);
     renderMyhouseSidebar();
-
-    const btn = document.querySelector('.myhouse-title-save-btn');
-    if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = '変更しました';
-        btn.disabled = true;
-        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
-    }
 }
 
 // ============================================

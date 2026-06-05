@@ -10402,14 +10402,16 @@ table.shop-table.gym-table .target-job-stats {
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
+    min-height: 0;
     background: var(--myhouse-content-bg);
+    accent-color: #0065df;
 }
 
 /* 設定フォームのスクロールラッパー */
 .myhouse-right-scroll {
     flex: 1;
     overflow-y: auto;
-    padding: 24px 28px;
+    padding: 30px;
     box-sizing: border-box;
     min-height: 0;
 }
@@ -12220,53 +12222,129 @@ table.shop-table.gym-table .target-job-stats {
     display: flex;
     flex-direction: column;
     gap: 22px;
-    max-width: 520px;
 }
 
-.myhouse-url-setting-title {
-    margin: 0;
-    font-size: 15px;
+.myhouse-setting-row {
+    display: flex;
+    align-items: center;
+}
+
+.myhouse-setting-row--top {
+    align-items: flex-start;
+}
+.myhouse-setting-row--top .myhouse-setting-row-label {
+    padding-top: 11px;
+}
+
+.myhouse-setting-row-label {
+    width: 180px;
+    min-width: 180px;
+    font-size: 13px;
     font-weight: bold;
-    color: #555;
+    color: var(--myhouse-nav-color);
 }
 
-.myhouse-url-field {
+.myhouse-setting-row-control {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-.myhouse-url-label {
-    font-size: 13px;
+.myhouse-setting-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.myhouse-url-setting-title {
+    margin: 0;
+    font-size: 18px;
     font-weight: bold;
-    color: var(--myhouse-nav-color);
+    color: #555;
+}
+
+.myhouse-visibility-options {
+    display: flex;
+    gap: 24px;
+}
+
+.myhouse-visibility-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 .myhouse-url-input {
     padding: 8px 10px;
     border: 1px solid var(--myhouse-border);
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 15px;
     font-family: inherit;
     background: #fff;
     color: #444;
     outline: none;
     transition: border-color 0.15s;
+    width: 100%;
+    max-width: 480px;
+    box-sizing: border-box;
 }
 
 .myhouse-url-input:focus {
     border-color: var(--myhouse-accent);
 }
 
+.myhouse-bio-input {
+    max-width: 580px;
+    resize: none;
+}
+
+.myhouse-shop-desc-input {
+    max-width: none;
+    resize: none;
+}
+
+.myhouse-shop-desc-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.myhouse-url-group {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    background: #e8e8e8;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 18px 20px;
+}
+
+.myhouse-bio-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 580px;
+}
+
 .myhouse-url-hint {
     margin: 0;
-    font-size: 11px;
-    color: #aaa;
+    font-size: 12px;
+    color: #808080 !important;
 }
 .myhouse-url-error {
     margin: 2px 0 0;
     font-size: 12px;
     color: #cc0000;
+}
+
+.myhouse-title-input {
+    width: 200px;
 }
 
 /* タイトル名入力行 */
@@ -12275,22 +12353,6 @@ table.shop-table.gym-table .target-job-stats {
     gap: 8px;
     align-items: center;
 }
-.myhouse-title-save-btn {
-    padding: 8px 14px;
-    background: var(--myhouse-accent);
-    border: none;
-    border-radius: 5px;
-    color: #fff;
-    font-size: 13px;
-    cursor: pointer;
-    font-family: inherit;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: background 0.1s;
-}
-.myhouse-title-save-btn:hover { background: var(--myhouse-accent-dark); }
-.myhouse-title-save-btn:disabled { background: #aaa; cursor: default; }
-
 /* ホーム画面チェックボックス */
 .myhouse-home-check-row {
     background: var(--myhouse-accent-light);
@@ -12334,22 +12396,22 @@ table.shop-table.gym-table .target-job-stats {
 }
 
 .myhouse-url-save-btn {
-    background: #333333;
+    background: #0065df;
     border: none;
     border-radius: 4px;
     color: #ffffff;
-    font-size: 13px;
+    font-size: 16px;
     font-family: inherit;
     font-weight: bold;
     padding: 7px 18px;
     cursor: pointer;
-    box-shadow: inset 0 0 0 3px #333333,
+    box-shadow: inset 0 0 0 3px #0065df,
                 inset 0 0 0 4px #ffffff;
 }
 
 .myhouse-url-save-btn:hover {
-    background: #555555;
-    box-shadow: inset 0 0 0 3px #555555,
+    background: #0052b8;
+    box-shadow: inset 0 0 0 3px #0052b8,
                 inset 0 0 0 4px #ffffff;
     transform: none;
 }
@@ -12363,9 +12425,10 @@ table.shop-table.gym-table .target-job-stats {
 /* 家主掲示板 公開範囲設定 */
 .myhouse-diary-vis-options {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 8px;
     margin-top: 6px;
+    max-width: 600px;
 }
 
 .myhouse-diary-vis-label {
@@ -12377,6 +12440,7 @@ table.shop-table.gym-table .target-job-stats {
     border: 1px solid #e6c99a;
     border-radius: 4px;
     cursor: pointer;
+    flex: 1;
 }
 
 .myhouse-diary-vis-label:has(input:checked) {
@@ -14315,10 +14379,10 @@ p.shokudo-select-name {
 }
 
 .shop2-cart-overlay-body {
-    padding: 20px 24px;
+    padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 24px;
     flex: 1;
     overflow-y: auto;
 }
@@ -16318,35 +16382,6 @@ p.shokudo-select-name {
     height: 100%;
     overflow: hidden;
 }
-.shopinv-view-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    border-bottom: 1px solid #e0d8cc;
-    background: var(--myhouse-content-bg, #fff);
-    flex-shrink: 0;
-}
-.shopinv-view-title {
-    font-size: 15px;
-    font-weight: bold;
-    color: #555;
-}
-.shopinv-back-btn {
-    padding: 5px 12px;
-    border: 1.5px solid #bbb;
-    border-radius: 6px;
-    background: #fff;
-    color: #666;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.shopinv-back-btn:hover {
-    background: #f5f5f5;
-    border-color: #999;
-}
-
 /* テーブル＋スライドパネルのコンテナ */
 .shopinv-listview {
     flex: 1;
@@ -16354,10 +16389,12 @@ p.shokudo-select-name {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    padding: 30px;
 }
 .shopinv-listview .shop2-table-container {
     flex: 1;
     overflow: auto;
+    border-color: #999;
 }
 
 /* テーブル行 */
@@ -16365,12 +16402,7 @@ p.shokudo-select-name {
     cursor: pointer;
     transition: background 0.1s;
 }
-.shopinv-row:hover td {
-    background: #fff5e6 !important;
-}
-.shopinv-row.active td {
-    background: #ffe8c8 !important;
-}
+
 
 /* 販売チェックボックスセル */
 .shopinv-cb-cell {
@@ -16382,11 +16414,66 @@ p.shokudo-select-name {
     width: 1%;
     white-space: nowrap;
 }
-.shopinv-listed-cb {
-    width: 16px;
-    height: 16px;
+#shopInventoryTable thead th {
+    background: #999;
+    border-right-color: #888;
+}
+#shopInventoryTable thead tr.shop2-header-group th {
+    border-bottom-color: #999;
+}
+#shopInventoryTable thead tr.shop2-header-sub th {
+    background: #b0b0b0;
+}
+#shopInventoryTable td {
+    border-right-color: #e0e0e0;
+}
+#shopInventoryTable td.shop2-price {
+    color: #333;
+}
+#shopInventoryTable tbody td:nth-child(1),
+#shopInventoryTable tbody td:nth-child(15) { border-right-color: #ccc; }
+#shopInventoryTable tbody tr:last-child td { border-bottom-color: #ccc; }
+#shopInventoryTable tr.separator-row td { background: #f0f0f0; }
+#shopInventoryTable tr.separator-row:hover td { background: #f0f0f0; }
+#shopInventoryPanel.shop2-cart-overlay {
+    background: #f7f7f7;
+    border-left-color: #999999;
+}
+#shopInventoryPanel .shop2-cart-tab {
+    background: #888;
+}
+
+.shopinv-toggle-btn {
+    display: flex;
+    align-items: center;
+    background: none;
+    border: none;
+    padding: 0;
     cursor: pointer;
-    accent-color: #e6913f;
+}
+.shopinv-toggle-btn .recommend-toggle {
+    width: 55px;
+    height: 24px;
+}
+.shopinv-toggle-btn .recommend-on-text,
+.shopinv-toggle-btn .recommend-off-text {
+    font-size: 11px;
+}
+.shopinv-toggle-btn .recommend-knob {
+    width: 18px;
+    height: 18px;
+}
+.shopinv-toggle-btn.active .recommend-toggle {
+    background: #0065df;
+}
+.shopinv-toggle-btn.active .recommend-knob {
+    left: 34px;
+}
+.shopinv-toggle-btn.active .recommend-on-text {
+    display: block;
+}
+.shopinv-toggle-btn.active .recommend-off-text {
+    display: none;
 }
 
 /* ジャンルセル */
@@ -16401,10 +16488,46 @@ p.shokudo-select-name {
     font-weight: bold;
     text-decoration: underline;
     text-underline-offset: 3px;
-    color: #c07020;
+    color: #0065df;
     white-space: nowrap;
     text-align: left !important;
 }
+
+.shopinv-qty-cell {
+    font-weight: bold;
+}
+
+.shopinv-row-listed td {
+    background: #bcd8ff !important;
+}
+.shopinv-row-listed:hover td {
+    background: #bcd8ff !important;
+}
+
+.shopinv-unset {
+    color: #bbb;
+    font-size: 12px;
+}
+
+.shopinv-save-price-btn {
+    padding: 5px 18px;
+    background: #0065df;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+}
+.shopinv-save-price-btn:hover {
+    background: #0052b8;
+}
+.shopinv-save-price-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
 
 /* 空状態 */
 .shopinv-empty {
@@ -16417,20 +16540,19 @@ p.shokudo-select-name {
 
 /* 読み取り専用情報グループ */
 .shopinv-info-group {
-    background: #f5f0e8;
-    border: 1px solid #ddd0b8;
-    border-radius: 8px;
-    padding: 12px 14px;
+    background: #dddddd;
+    border-radius: 4px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 4px;
+    gap: 7px;
+    margin-bottom: 7px;
 }
 .shopinv-info-row {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 13px;
+    font-size: 16px;
 }
 .shopinv-info-label {
     color: #444;
@@ -16446,35 +16568,45 @@ p.shokudo-select-name {
 /* フィールド */
 .shopinv-field {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0;
 }
 .shopinv-label {
     font-size: 13px;
     font-weight: bold;
     color: #666;
+    width: 72px;
+    min-width: 72px;
+    padding-top: 7px;
+}
+.shopinv-field-body {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    flex: 1;
 }
 .shopinv-input-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
 }
 .shopinv-input {
     width: 100px;
     padding: 6px 10px;
     border: 1px solid #ccc;
-    border-radius: 6px;
-    font-size: 14px;
-    text-align: right;
+    border-radius: 4px;
+    font-size: 16px;
+    text-align: start;
 }
 .shopinv-input:focus {
     outline: none;
-    border-color: #e6913f;
-    box-shadow: 0 0 0 2px rgba(230, 145, 63, 0.2);
+    border-color: #999;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
 }
 .shopinv-unit {
-    font-size: 13px;
-    color: #555;
+    font-size: 15px;
+    color: #333333;
     flex-shrink: 0;
 }
 .shopinv-hint {
@@ -16483,50 +16615,20 @@ p.shokudo-select-name {
     margin: 0;
 }
 
-/* 陳列トグル */
-.shopinv-toggle-row {
-    display: flex;
-    gap: 8px;
-}
-.shopinv-toggle-btn {
-    flex: 1;
-    padding: 8px 0;
-    border: 1.5px solid #ccc;
-    border-radius: 6px;
-    background: #fff;
-    color: #444;
-    font-size: 13px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.shopinv-toggle-btn.active {
-    background: #e6913f;
-    border-color: #e6913f;
-    color: #fff;
-}
-
 /* 破棄グループ */
 .shopinv-discard-group {
-    border-top: 1px solid #eee;
-    padding-top: 12px;
     margin-top: 4px;
 }
 .shopinv-discard-btn {
-    padding: 6px 12px;
-    background: #fff;
-    border: 1.5px solid #cc4444;
-    border-radius: 6px;
-    color: #cc4444;
-    font-size: 13px;
+    padding: 5px 18px;
+    background: #c72b2b;
+    border: 1px solid #c72b2a;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 14px;
     font-weight: bold;
     cursor: pointer;
-    transition: all 0.15s;
     flex-shrink: 0;
-}
-.shopinv-discard-btn:hover {
-    background: #cc4444;
-    color: #fff;
 }
 .shopinv-discard-all-btn {
     width: 100%;
@@ -16581,7 +16683,8 @@ p.shokudo-select-name {
     padding: 25px;
     font-size: var(--myhouse-font-size, 13px);
     color: var(--myhouse-text, #a07040);
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
     box-sizing: border-box;
 }
@@ -16598,6 +16701,9 @@ p.shokudo-select-name {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    overflow-y: auto;
+    min-height: 0;
+    max-height: 100%;
 }
 
 /* ─── パネルヘッダー（投稿・プロフ共通） ─── */
@@ -16629,6 +16735,7 @@ p.shokudo-select-name {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    overflow-y: auto;
 }
 
 .myhouse-bulletin-toolbar {
